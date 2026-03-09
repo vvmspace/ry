@@ -1,0 +1,28 @@
+{
+  "name": "puppeteer-template",
+  "version": "1.0.0",
+  "description": "puppeteer template for node.js",
+  "main": "index.js",
+  "scripts": {
+    "action": "node ./src/action.js",
+    "format": "npx prettier --write .",
+    "init": "cp .env.example .env",
+    "reset": "rm -rf ./userdir",
+    "show": "node ./src/show.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "puppeteer": "^21.7.0"
+  },
+  "devDependencies": {
+    "husky": "^8.0.3"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run format"
+    }
+  }
+}
