@@ -1,0 +1,112 @@
+require("dotenv").config();
+
+const mongoose = require("mongoose");
+
+const { connectMongo } = require("../db/mongoose");
+const JobPage = require("../models/jobPage");
+
+const API_BASE = "https://tma.kingofthehill.pro";
+const GENERATE_CV_PATH = "/api/v1/generate_cv";
+
+function buildVacancyText(job) {
+  const parts = [];
+  if (job.title) parts.push(`Title: ${job.title}`);
+  if (job.companyName) parts.push(`Company: ${job.companyName}`);
+  if (job.salary) parts.push(`Salary: ${job.salary}`);
+  if (job.description) parts.push(job.description);
+  return parts.join("\n\n").trim() || "";
+}
+
+function buildCvUrl(pdfUrl) {
+  if (!pdfUrl || typeof pdfUrl !== "string") return null;
+  const path = pdfUrl.startsWith("/") ? pdfUrl : `/${pdfUrl}`;
+  return `${API_BASE}${path}`;
+}
+
+async function generateCvForJob(job, options = {}) {
+  const template = options.template ?? process.env.CV_TEMPLATE ?? "dark_calendly";
+  const model = options.model ?? process.env.CV_MODEL ?? "gemini-3.1-pro-preview";
+
+  const vacancyText = buildVacancyText(job);
+  if (!vacancyText) {
+    throw new Error("Job has no text to generate CV from");
+  }
+
+  const body = {
+    vacancy_text: vacancyText,
+    template,
+    model,
+  };
+
+  const url = `${API_BASE}${GENERATE_CV_PATH}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`generate_cv API error ${res.status}: ${text}`);
+  }
+
+  const data = await res.json();
+  if (!data || data.success !== true) {
+    throw new Error(data?.message || "generate_cv API returned success: false");
+  }
+
+  const pdfUrl = data.pdf_url;
+  const cvUrl = buildCvUrl(pdfUrl);
+  const greetingMessage =
+    typeof data.greeting_message === "string" && data.greeting_message.trim()
+      ? data.greeting_message.trim()
+      : "";
+
+  return { cvUrl, greetingMessage, data };
+}
+
+async function runCvGenerationWorker() {
+  await connectMongo();
+
+  const job = await JobPage.findOne({ status: "saved" });
+  if (!job) {
+    console.log("No saved jobs found. Exiting.");
+    return;
+  }
+
+  console.log(`Generating CV for job: ${job.url}`);
+
+  try {
+    const { cvUrl, greetingMessage } = await generateCvForJob(job);
+    if (!cvUrl) {
+      throw new Error("API did not return pdf_url");
+    }
+
+    job.cvUrl = cvUrl;
+    job.greetingMessage = greetingMessage;
+    job.status = "generated";
+    await job.save();
+    console.log(`CV generated: ${cvUrl}`);
+  } catch (err) {
+    console.error("CV generation failed:", err);
+    // job.status = "error";
+    // await job.save();
+    throw err;
+  } finally {
+    await mongoose.disconnect();
+  }
+}
+
+if (require.main === module) {
+  runCvGenerationWorker().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  buildVacancyText,
+  buildCvUrl,
+  generateCvForJob,
+  runCvGenerationWorker,
+};

@@ -1,0 +1,5 @@
+inspect project structure and config (package.json, env, existing source files)
+design Jobs List Parser worker shape (entrypoint, modules, data model, env handling)
+implement worker code to fetch list pages, parse job links, store pages in MongoDB with status pending, skipping existing urls
+add tests for worker logic (parsing, db interaction mocked, env validation)
+wire npm scripts and any required config, run tests and adjust until green

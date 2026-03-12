@@ -8,17 +8,29 @@
     "format": "npx prettier --write .",
     "init": "cp .env.example .env",
     "reset": "rm -rf ./userdir",
-    "show": "node ./src/show.js"
+    "show": "node ./src/show.js",
+    "jobs:list": "node ./src/workers/jobsListWorker.js",
+    "jobs:parse": "node ./src/workers/jobPageWorker.js",
+    "cv:generate": "node ./src/workers/cvGenerationWorker.js",
+    "prestart": "npm run frontend:generate",
+    "start": "node ./src/api/server.js",
+    "start:all": "npm start",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:generate": "cd frontend && npm run generate",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "dotenv": "^16.3.1",
-    "puppeteer": "^21.7.0"
+    "cheerio": "^1.2.0",
+    "dotenv": "^16.5.0",
+    "mongoose": "^9.2.4",
+    "puppeteer": "^24.38.0"
   },
   "devDependencies": {
-    "husky": "^8.0.3"
+    "husky": "^9.1.7"
   },
   "husky": {
     "hooks": {
