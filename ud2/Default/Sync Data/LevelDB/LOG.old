@@ -1,3 +1,3 @@
-2026/03/12-07:34:46.537 543178 Reusing MANIFEST /Users/vvm/ry/ud2/Default/Sync Data/LevelDB/MANIFEST-000001
-2026/03/12-07:34:46.565 543178 Recovering log #3
-2026/03/12-07:34:46.565 543178 Reusing old log /Users/vvm/ry/ud2/Default/Sync Data/LevelDB/000003.log 
+2026/03/12-08:05:52.775 54d20b Reusing MANIFEST /Users/vvm/ry/ud2/Default/Sync Data/LevelDB/MANIFEST-000001
+2026/03/12-08:05:52.799 54d20b Recovering log #3
+2026/03/12-08:05:52.799 54d20b Reusing old log /Users/vvm/ry/ud2/Default/Sync Data/LevelDB/000003.log 
