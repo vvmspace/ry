@@ -179,7 +179,7 @@ onUnmounted(() => {
             <input
               v-model="apiBase"
               type="text"
-              placeholder="http://localhost:3000"
+              placeholder="http://localhost:4040"
               class="api-input"
               @blur="saveApiBase"
               @keydown.enter="saveApiBase"

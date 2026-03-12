@@ -6,7 +6,7 @@ const fs = require("fs");
 const { connectMongo } = require("../db/mongoose");
 const { listJobs, updateJobById, getJobById } = require("./jobsHandler");
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 4040;
 
 const STATIC_DIR = process.env.STATIC_DIR
   ? path.resolve(process.cwd(), process.env.STATIC_DIR)
@@ -160,7 +160,7 @@ async function handleRequest(req, res) {
         res.end(fs.readFileSync(resolved));
         return;
       }
-    } catch (_) {}
+    } catch (_) { }
     const index = path.join(STATIC_DIR, "index.html");
     if (fs.existsSync(index)) {
       res.setHeader("Content-Type", "text/html");
