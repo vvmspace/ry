@@ -106,6 +106,12 @@ Auto-refresh with select interval: off (default), 5s, 10s, 30s, 1m, 5m, 10m, 30m
 Clickable filter by status
 Fast copy miniblock: LinkedIn, GitHub from LINKEDIN_PROFILE and GITHUB_PROFILE as icons
 
+Search by first 3 letters:
+- everywhere: ~JSON.stringify(...).includes and separately:
+- domain
+- company
+- position
+
 Fields:
 - Rate: match_rate (color coded: red < 50, yellow 50-75, green > 75) empty id empty
 - position_title + <small>top_tech_and_skills</small>: text

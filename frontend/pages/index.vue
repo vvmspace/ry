@@ -37,6 +37,7 @@ const refreshInterval = ref("0");
 const domainFilter = ref("");
 const companyFilter = ref("");
 const titleFilter = ref("");
+const everywhereFilter = ref("");
 
 const INTERVALS: { value: string; label: string; ms: number }[] = [
   { value: "0", label: "Off", ms: 0 },
@@ -114,8 +115,16 @@ const filteredJobs = computed(() => {
   const domainNeedle = normalizeFilterValue(domainFilter.value);
   const companyNeedle = normalizeFilterValue(companyFilter.value);
   const titleNeedle = normalizeFilterValue(titleFilter.value);
+  const everywhereNeedle = normalizeFilterValue(everywhereFilter.value);
 
   return jobs.value.filter((job) => {
+    if (everywhereNeedle) {
+      const jobString = JSON.stringify(job).toLowerCase();
+      if (!jobString.includes(everywhereNeedle)) {
+        return false;
+      }
+    }
+
     if (domainNeedle && !getTopLevelDomain(job.domain).includes(domainNeedle)) {
       return false;
     }
@@ -430,6 +439,10 @@ onUnmounted(() => {
       </section>
 
       <section class="search-filters" aria-label="Text filters">
+        <label>
+          Everywhere
+          <input v-model="everywhereFilter" type="text" placeholder="min 3 chars" class="filter-input" />
+        </label>
         <label>
           Domain
           <input v-model="domainFilter" type="text" placeholder="min 3 chars" class="filter-input" />
