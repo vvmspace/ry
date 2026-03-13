@@ -113,6 +113,7 @@ async function runJobsListWorker() {
       width: 1280,
       height: 720,
     },
+    args: ["--no-sandbox", "--disable-setuid-sandbox"]
   });
 
   try {
