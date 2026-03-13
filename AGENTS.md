@@ -112,7 +112,7 @@ Fields:
 - greeting_message copy icon if greeting_message is provided
 - link to CV: PDF icon, download on click
 
-## Deployment: github on push webhook from local machine
+## Deployment: github on push githook from local machine
 
 `scripts/deploy.sh`
 
@@ -121,7 +121,7 @@ Environment variables and defaults:
 USER_HOST=sudar@api.kingofthehill.pro
 REMOTE_PATH=/home/sudar/ry
 
-Add github webhook after push (husky?):
+Add github githook after push (husky?):
 
 ssh USER_HOST 'cd REMOTE_PATH && npm run deploy'
 

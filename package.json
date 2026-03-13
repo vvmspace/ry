@@ -22,7 +22,7 @@
     "frontend:build": "cd frontend && npm i && npm run build",
     "frontend:generate": "cd frontend && npm run generate",
     "deploy": "./scripts/deploy.sh",
-    "update": "git checkout . && git pull && npm i & npm run frontend:build && npm run reset:all",
+    "update": "./scripts/update.sh",
     "test": "node --test"
   },
   "keywords": [],
