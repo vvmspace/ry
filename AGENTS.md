@@ -81,7 +81,7 @@ Job page contains:
 GET /api/v1/jobs
 
 list jobs ordered by:
-- status: generated -> error -> saved -> pending -> cancelled -> applied
+- status: started -> generated -> error -> saved -> pending -> cancelled -> applied
 - matchRate desc
 - updatedAt desc
 
@@ -93,14 +93,14 @@ with optional filters:
 
 PATCH /api/jobs/:_id
 
-{ status: pending, saved, generated, applied, cancelled }
+{ status: pending, saved, generated, started, applied, cancelled }
 
 ## Frontend
 Nuxt.js, adaptive, dark mode, mobile first, same port as API.
 
 ### /
 
-List of vacancies Adaptive: table like divs on wide screen, cards on mobile.
+List of vacancies. Adaptive: table like divs on wide screen, cards on mobile.
 
 Auto-refresh with select interval: off (default), 5s, 10s, 30s, 1m, 5m, 10m, 30m
 Clickable filter by status
@@ -111,9 +111,9 @@ Fields:
 - position_title + <small>top_tech_and_skills</small>: text
 - company name: text
 - salary: text
-- domain (top level: jobs.level.co -> level.co, jobs.remoteok.com -> remoteok.com, ...)
+- domain (top level: jobs.lever.co -> lever.co, jobs.remoteok.com -> remoteok.com, ...)
 - status: select box with statuses, call update API on change and fetch vacancies list
-- link to vacancy (applicationUrl)
+- link to vacancy (applicationUrl), set 'started' status on click
 - copy: icons buttons: greeting_message, email, why_answer if provided
 - link to CV: PDF icon, download on click
 

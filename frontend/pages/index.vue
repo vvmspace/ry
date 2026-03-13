@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type JobStatus = "pending" | "saved" | "generated" | "applied" | "cancelled" | "error";
+type JobStatus = "pending" | "saved" | "generated" | "started" | "applied" | "cancelled" | "error";
 
 type Job = {
   _id: string;
@@ -49,13 +49,14 @@ const INTERVALS: { value: string; label: string; ms: number }[] = [
   { value: "1800", label: "30m", ms: 1_800_000 },
 ];
 
-const STATUSES: JobStatus[] = ["pending", "saved", "generated", "applied", "cancelled", "error"];
+const STATUSES: JobStatus[] = ["pending", "saved", "generated", "started", "applied", "cancelled", "error"];
 
 const statusCounts = computed(() => {
   const counts: Record<JobStatus, number> = {
     pending: 0,
     saved: 0,
     generated: 0,
+    started: 0,
     applied: 0,
     cancelled: 0,
     error: 0,
@@ -216,6 +217,17 @@ async function updateStatus(id: string, status: string) {
     await fetchJobs();
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Failed to update status";
+  }
+}
+
+async function handleVacancyClick(job: Job, event: MouseEvent) {
+  if (job.status === "generated") {
+    event.preventDefault();
+    await updateStatus(job._id, "started");
+    // Open the link after updating status
+    if (job.applicationUrl) {
+      window.open(job.applicationUrl, "_blank", "noopener");
+    }
   }
 }
 
@@ -486,6 +498,7 @@ onUnmounted(() => {
                   class="action-link"
                   aria-label="Open vacancy"
                   title="Open vacancy"
+                  @click="handleVacancyClick(job, $event)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
@@ -666,6 +679,7 @@ onUnmounted(() => {
                 class="action-link"
                 aria-label="Open vacancy"
                 title="Open vacancy"
+                @click="handleVacancyClick(job, $event)"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path
