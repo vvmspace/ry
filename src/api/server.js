@@ -118,8 +118,9 @@ async function handleRequest(req, res) {
 
       const response = await fetch(job.cvUrl);
       if (!response.ok) {
+        console.error('[CV Download] Failed to fetch CV:', response.status, response.statusText);
         res.writeHead(502, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "failed to download cv" }));
+        res.end(JSON.stringify({ error: "failed to download cv", status: response.status }));
         return;
       }
 
@@ -134,6 +135,8 @@ async function handleRequest(req, res) {
         "Content-Type": response.headers.get("content-type") || "application/pdf",
         "Content-Disposition": `attachment; filename="${safeTitle}.pdf"`,
         "Content-Length": buffer.byteLength,
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Expose-Headers": "Content-Disposition",
       });
 
       res.end(Buffer.from(buffer));
