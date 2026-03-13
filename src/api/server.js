@@ -47,6 +47,7 @@ function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, PATCH, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 }
 
 async function handleRequest(req, res) {
