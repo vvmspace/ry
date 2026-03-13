@@ -67,10 +67,11 @@ Job page contains:
   "pdf_absolute_path": "string",
   "greeting_message": "string",
   "email": string,
+  "why_answer": "string",
   "match_rate": "number"
 }
 ```
-4. Gets greeting_message, match_rate, email and top_tech_and_skills from response
+4. Gets greeting_message, match_rate, email, why_answer and top_tech_and_skills from response
 5. Gets pdf_url from response
 6. cv_url=`https://tma.kingofthehill.pro${pdf_url}`
 7. saves with status `generated`
@@ -113,7 +114,7 @@ Fields:
 - domain (top level: jobs.level.co -> level.co, jobs.remoteok.com -> remoteok.com, ...)
 - status: select box with statuses, call update API on change and fetch vacancies list
 - link to vacancy (applicationUrl)
-- copy: icons buttons: greeting_message, email if provided
+- copy: icons buttons: greeting_message, email, why_answer if provided
 - link to CV: PDF icon, download on click
 
 ## Deployment: github on push githook from local machine

@@ -14,6 +14,7 @@ type Job = {
   greetingMessage?: string;
   email?: string;
   topTechAndSkills?: string;
+  whyAnswer?: string;
   matchRate?: number | null;
 };
 
@@ -26,6 +27,7 @@ const apiBase = ref(
 
 const linkedinProfile = ref("");
 const githubProfile = ref("");
+const blinkingButton = ref<string | null>(null);
 
 const jobs = ref<Job[]>([]);
 const loading = ref(true);
@@ -217,17 +219,13 @@ async function updateStatus(id: string, status: string) {
   }
 }
 
-async function copyGreetingMessage(job: Job) {
-  if (!job.greetingMessage) return;
-
+async function copyWithBlink(text: string, buttonId: string) {
   try {
-    // Check if clipboard API is available (requires HTTPS or localhost)
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(job.greetingMessage);
+      await navigator.clipboard.writeText(text);
     } else {
-      // Fallback for non-secure contexts
       const textarea = document.createElement("textarea");
-      textarea.value = job.greetingMessage;
+      textarea.value = text;
       textarea.style.position = "fixed";
       textarea.style.opacity = "0";
       document.body.appendChild(textarea);
@@ -235,30 +233,24 @@ async function copyGreetingMessage(job: Job) {
       document.execCommand("copy");
       document.body.removeChild(textarea);
     }
+    
+    blinkingButton.value = buttonId;
+    setTimeout(() => {
+      blinkingButton.value = null;
+    }, 300);
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "Failed to copy greeting message";
+    error.value = e instanceof Error ? e.message : "Failed to copy";
   }
+}
+
+async function copyGreetingMessage(job: Job) {
+  if (!job.greetingMessage) return;
+  await copyWithBlink(job.greetingMessage, `greeting-${job._id}`);
 }
 
 async function copyEmail(job: Job) {
   if (!job.email) return;
-
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(job.email);
-    } else {
-      const textarea = document.createElement("textarea");
-      textarea.value = job.email;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-    }
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : "Failed to copy email";
-  }
+  await copyWithBlink(job.email, `email-${job._id}`);
 }
 
 async function copyToClipboard(text: string) {
@@ -278,6 +270,11 @@ async function copyToClipboard(text: string) {
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Failed to copy";
   }
+}
+
+async function copyWhyAnswer(job: Job) {
+  if (!job.whyAnswer) return;
+  await copyWithBlink(job.whyAnswer, `why-${job._id}`);
 }
 
 async function fetchProfiles() {
@@ -449,8 +446,7 @@ onUnmounted(() => {
               <div>Salary</div>
               <div>Domain</div>
               <div>Vacancy</div>
-              <div>Greeting</div>
-              <div>Email</div>
+              <div>Copy</div>
               <div>CV</div>
             </div>
 
@@ -504,11 +500,12 @@ onUnmounted(() => {
                 </a>
                 <span v-else class="text-muted">—</span>
               </div>
-              <div>
+              <div class="copy-buttons">
                 <button
                   v-if="job.greetingMessage"
                   type="button"
                   class="icon-button action-link"
+                  :class="{ blink: blinkingButton === `greeting-${job._id}` }"
                   aria-label="Copy greeting message"
                   title="Copy greeting message"
                   @click="copyGreetingMessage(job)"
@@ -530,13 +527,11 @@ onUnmounted(() => {
                     />
                   </svg>
                 </button>
-                <span v-else class="text-muted">—</span>
-              </div>
-              <div>
                 <button
                   v-if="job.email"
                   type="button"
                   class="icon-button action-link"
+                  :class="{ blink: blinkingButton === `email-${job._id}` }"
                   aria-label="Copy email"
                   title="Copy email"
                   @click="copyEmail(job)"
@@ -559,7 +554,34 @@ onUnmounted(() => {
                     />
                   </svg>
                 </button>
-                <span v-else class="text-muted">—</span>
+                <button
+                  v-if="job.whyAnswer"
+                  type="button"
+                  class="icon-button action-link"
+                  :class="{ blink: blinkingButton === `why-${job._id}` }"
+                  aria-label="Copy why answer"
+                  title="Copy why answer"
+                  @click="copyWhyAnswer(job)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </button>
+                <span v-if="!job.greetingMessage && !job.email && !job.whyAnswer" class="text-muted">—</span>
               </div>
               <div>
                 <a
@@ -660,64 +682,90 @@ onUnmounted(() => {
             </div>
 
             <div class="row">
-              <span class="label">Greeting</span>
-              <button
-                v-if="job.greetingMessage"
-                type="button"
-                class="icon-button action-link"
-                aria-label="Copy greeting message"
-                title="Copy greeting message"
-                @click="copyGreetingMessage(job)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M9 9a2 2 0 0 1 2-2h8v10a2 2 0 0 1-2 2h-8z"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                  <path
-                    d="M15 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                </svg>
-              </button>
-              <span v-else class="text-muted">—</span>
-            </div>
-
-            <div class="row">
-              <span class="label">Email</span>
-              <button
-                v-if="job.email"
-                type="button"
-                class="icon-button action-link"
-                aria-label="Copy email"
-                title="Copy email"
-                @click="copyEmail(job)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                  <path
-                    d="m22 6-10 7L2 6"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                </svg>
-              </button>
-              <span v-else class="text-muted">—</span>
+              <span class="label">Copy</span>
+              <div class="copy-buttons">
+                <button
+                  v-if="job.greetingMessage"
+                  type="button"
+                  class="icon-button action-link"
+                  :class="{ blink: blinkingButton === `greeting-${job._id}` }"
+                  aria-label="Copy greeting message"
+                  title="Copy greeting message"
+                  @click="copyGreetingMessage(job)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M9 9a2 2 0 0 1 2-2h8v10a2 2 0 0 1-2 2h-8z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M15 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </button>
+                <button
+                  v-if="job.email"
+                  type="button"
+                  class="icon-button action-link"
+                  :class="{ blink: blinkingButton === `email-${job._id}` }"
+                  aria-label="Copy email"
+                  title="Copy email"
+                  @click="copyEmail(job)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="m22 6-10 7L2 6"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </button>
+                <button
+                  v-if="job.whyAnswer"
+                  type="button"
+                  class="icon-button action-link"
+                  :class="{ blink: blinkingButton === `why-${job._id}` }"
+                  aria-label="Copy why answer"
+                  title="Copy why answer"
+                  @click="copyWhyAnswer(job)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </button>
+                <span v-if="!job.greetingMessage && !job.email && !job.whyAnswer" class="text-muted">—</span>
+              </div>
             </div>
 
             <div class="row">
@@ -933,8 +981,7 @@ onUnmounted(() => {
     minmax(6.5rem, 0.7fr)
     minmax(7rem, 0.75fr)
     5.5rem
-    5.5rem
-    5.5rem
+    minmax(10rem, 1fr)
     4.5rem;
   gap: 0.75rem;
   align-items: center;
@@ -950,11 +997,17 @@ onUnmounted(() => {
 }
 
 .jobs-row {
-  padding: 1rem 1.25rem;
+  padding: 0.75rem;
   background: rgba(13, 17, 23, 0.75);
   border: 1px solid rgba(125, 211, 252, 0.12);
   border-radius: 1.25rem;
   backdrop-filter: blur(12px);
+}
+
+.copy-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .position-cell strong {
@@ -1064,6 +1117,22 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.icon-button.blink {
+  animation: blinkEffect 0.3s ease;
+}
+
+@keyframes blinkEffect {
+  0%, 100% {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(125, 211, 252, 0.2);
+  }
+  50% {
+    background: rgba(61, 217, 180, 0.3);
+    border-color: rgba(61, 217, 180, 0.6);
+  }
 }
 
 .action-link {

@@ -27,6 +27,7 @@ const jobPageSchema = new mongoose.Schema(
     matchRate: Number,
     email: String,
     topTechAndSkills: String,
+    whyAnswer: String,
   },
   {
     timestamps: true,
