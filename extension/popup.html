@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinkedIn Autofill</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <h1>LinkedIn URL</h1>
+      <label class="field" for="linkedinUrl">Profile link</label>
+      <input
+        id="linkedinUrl"
+        name="linkedinUrl"
+        type="url"
+        placeholder="https://www.linkedin.com/in/your-profile"
+      />
+      <button id="saveButton" type="button">Save</button>
+      <p id="status" class="status" aria-live="polite"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
