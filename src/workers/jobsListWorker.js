@@ -116,6 +116,7 @@ async function runJobsListWorker() {
 
   await connectMongo();
   console.log("Connected to MongoDB successfully");
+  console.log("Database name:", mongoose.connection.db.databaseName);
   
   // Test database write
   const testUrl = `https://test-${Date.now()}.com`;
