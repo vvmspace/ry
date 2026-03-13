@@ -8,4 +8,4 @@ remote_path=${REMOTE_PATH:-$(cat .env | grep REMOTE_PATH | cut -d "=" -f2)}
 
 echo "Deploying to $user_host:$remote_path"
 
-ssh $user_host 'cd $remote_path && npm run update'
+ssh $user_host "cd $remote_path && npm run update"
