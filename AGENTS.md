@@ -6,6 +6,8 @@ MONGODB_CONNECTION_STRING
 MONGODB_DATABASE=remoteyeah
 REMOTEYEAH_SEARCH_URLS=https://remoteyeah.com/remote-nestjs-jobs,https://remoteyeah.com/remote-nestjs-jobs - separated by comma
 STOP_WORDS=ruby,python,dotnet
+LINKEDIN_PROFILE=https://www.linkedin.com/in/your-profile/
+GITHUB_PROFILE=https://github.com/your-username
 
 
 ## Stack
@@ -101,6 +103,7 @@ List of vacancies Adaptive: table like divs on wide screen, cards on mobile.
 
 Auto-refresh with select interval: off (default), 5s, 10s, 30s, 1m, 5m, 10m, 30m
 Clickable filter by status
+Fast copy miniblock: LinkedIn, GitHub from LINKEDIN_PROFILE and GITHUB_PROFILE as icons
 
 Fields:
 - Rate: match_rate (color coded: red < 50, yellow 50-75, green > 75) empty id empty

@@ -76,6 +76,22 @@ async function handleRequest(req, res) {
     return;
   }
 
+  if (method === "GET" && pathname === "/api/v1/copy") {
+    try {
+      const profiles = {
+        linkedin: process.env.LINKEDIN_PROFILE || "",
+        github: process.env.GITHUB_PROFILE || "",
+      };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(profiles));
+    } catch (err) {
+      console.error(err);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Internal server error" }));
+    }
+    return;
+  }
+
   const patchMatch = pathname.match(PATCH_JOBS_RE);
   if (method === "PATCH" && patchMatch) {
     const id = patchMatch[1];

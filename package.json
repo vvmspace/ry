@@ -23,7 +23,8 @@
     "frontend:generate": "cd frontend && npm run generate",
     "deploy": "./scripts/deploy.sh",
     "update": "./scripts/update.sh",
-    "test": "node --test"
+    "test": "node --test",
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "",
