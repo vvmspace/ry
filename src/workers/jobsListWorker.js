@@ -65,9 +65,12 @@ function extractJobLinksFromHtml(html, baseUrl) {
 }
 
 async function saveJobLinks(urls) {
+  console.log(`Saving ${urls.length} job links to database...`);
+  let saved = 0;
+  let skipped = 0;
   for (const url of urls) {
     try {
-      await JobPage.updateOne(
+      const result = await JobPage.updateOne(
         { url },
         {
           $setOnInsert: {
@@ -76,14 +79,21 @@ async function saveJobLinks(urls) {
         },
         { upsert: true }
       );
+      if (result.upsertedCount > 0) {
+        saved++;
+      } else {
+        skipped++;
+      }
     } catch (err) {
       if (err && err.code === 11000) {
+        skipped++;
         continue;
       }
       // log but do not crash the whole worker
       console.error("Failed to save job url", url, err);
     }
   }
+  console.log(`Saved ${saved} new jobs, skipped ${skipped} existing jobs`);
 }
 
 async function parseSearchPage(page, searchUrl) {
