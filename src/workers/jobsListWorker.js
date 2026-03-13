@@ -115,6 +115,18 @@ async function runJobsListWorker() {
   }
 
   await connectMongo();
+  console.log("Connected to MongoDB successfully");
+  
+  // Test database write
+  const testUrl = `https://test-${Date.now()}.com`;
+  const testResult = await JobPage.updateOne(
+    { url: testUrl },
+    { $setOnInsert: { status: "pending" } },
+    { upsert: true }
+  );
+  console.log("Test write result:", testResult);
+  await JobPage.deleteOne({ url: testUrl });
+  console.log("Database write test passed");
 
   const browser = await puppeteer.launch({
     userDataDir: process.env.USER_DIR || "userdir",
