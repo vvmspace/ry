@@ -202,7 +202,20 @@ async function copyGreetingMessage(job: Job) {
   if (!job.greetingMessage) return;
 
   try {
-    await navigator.clipboard.writeText(job.greetingMessage);
+    // Check if clipboard API is available (requires HTTPS or localhost)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(job.greetingMessage);
+    } else {
+      // Fallback for non-secure contexts
+      const textarea = document.createElement("textarea");
+      textarea.value = job.greetingMessage;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Failed to copy greeting message";
   }
