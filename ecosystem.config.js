@@ -33,6 +33,7 @@ module.exports = {
       max_memory_restart: "1G",
       env: {
         NODE_ENV: "production",
+        USER_DIR: "./ud2"
       },
     },
     {
