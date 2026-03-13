@@ -136,8 +136,22 @@ function getVacancyUrl(job: Job) {
 }
 
 function getCvDownloadUrl(job: Job) {
-  const base = apiBase.value.replace(/\/$/, "");
+  let base = apiBase.value.replace(/\/$/, "");
+  
+  // If apiBase is empty, use current origin
+  if (!base && typeof window !== "undefined") {
+    base = window.location.origin;
+  }
+  
   return `${base}/api/jobs/${job._id}/cv`;
+}
+
+function getCvFileName(job: Job) {
+  const safeTitle = (job.title || "cv")
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "cv";
+  return `${safeTitle}.pdf`;
 }
 
 function formatMatchRate(value?: number | null) {
@@ -425,8 +439,8 @@ onUnmounted(() => {
                 <a
                   v-if="job.cvUrl"
                   :href="getCvDownloadUrl(job)"
+                  :download="getCvFileName(job)"
                   class="cv-link action-link"
-                  download
                   aria-label="Download CV PDF"
                   title="Download CV PDF"
                 >
@@ -553,8 +567,8 @@ onUnmounted(() => {
               <a
                 v-if="job.cvUrl"
                 :href="getCvDownloadUrl(job)"
+                :download="getCvFileName(job)"
                 class="cv-link action-link"
-                download
                 aria-label="Download CV PDF"
                 title="Download CV PDF"
               >
