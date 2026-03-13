@@ -100,7 +100,9 @@ async function handleRequest(req, res) {
   const downloadCvMatch = pathname.match(DOWNLOAD_CV_RE);
   if (method === "GET" && downloadCvMatch) {
     try {
+      console.log('[CV Download] Job ID:', downloadCvMatch[1]);
       const job = await getJobById(downloadCvMatch[1]);
+      console.log('[CV Download] Job found:', !!job, 'cvUrl:', job?.cvUrl);
       if (!job) {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "not found" }));

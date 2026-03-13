@@ -2,3 +2,4 @@ node_modules
 userdir
 .env
 ud2
+.vscode
