@@ -64,10 +64,11 @@ Job page contains:
   "pdf_url": "string",
   "pdf_absolute_path": "string",
   "greeting_message": "string",
+  "email": string,
   "match_rate": "number"
 }
 ```
-4. Gets greeting_message and match_rate from response
+4. Gets greeting_message, match_rate, email and top_tech_and_skills from response
 5. Gets pdf_url from response
 6. cv_url=`https://tma.kingofthehill.pro${pdf_url}`
 7. saves with status `generated`
@@ -103,13 +104,13 @@ Clickable filter by status
 
 Fields:
 - Rate: match_rate (color coded: red < 50, yellow 50-75, green > 75) empty id empty
-- position_title: text
+- position_title + <small>top_tech_and_skills</small>: text
 - company name: text
 - salary: text
 - domain (top level: jobs.level.co -> level.co, jobs.remoteok.com -> remoteok.com, ...)
 - status: select box with statuses, call update API on change and fetch vacancies list
 - link to vacancy (applicationUrl)
-- greeting_message copy icon if greeting_message is provided
+- copy: icons buttons: greeting_message, email if provided
 - link to CV: PDF icon, download on click
 
 ## Deployment: github on push githook from local machine

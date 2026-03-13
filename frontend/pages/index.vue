@@ -12,6 +12,8 @@ type Job = {
   status: JobStatus;
   cvUrl?: string;
   greetingMessage?: string;
+  email?: string;
+  topTechAndSkills?: string;
   matchRate?: number | null;
 };
 
@@ -235,6 +237,27 @@ async function copyGreetingMessage(job: Job) {
   }
 }
 
+async function copyEmail(job: Job) {
+  if (!job.email) return;
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(job.email);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = job.email;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "Failed to copy email";
+  }
+}
+
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 watch(refreshInterval, (val) => {
@@ -355,6 +378,7 @@ onUnmounted(() => {
               <div>Domain</div>
               <div>Vacancy</div>
               <div>Greeting</div>
+              <div>Email</div>
               <div>CV</div>
             </div>
 
@@ -366,6 +390,7 @@ onUnmounted(() => {
               </div>
               <div class="position-cell">
                 <strong>{{ job.title || "—" }}</strong>
+                <small v-if="job.topTechAndSkills" class="tech-skills">{{ job.topTechAndSkills }}</small>
               </div>
               <div class="company-cell">
                 <span>{{ job.companyName || "—" }}</span>
@@ -436,6 +461,35 @@ onUnmounted(() => {
                 <span v-else class="text-muted">—</span>
               </div>
               <div>
+                <button
+                  v-if="job.email"
+                  type="button"
+                  class="icon-button action-link"
+                  aria-label="Copy email"
+                  title="Copy email"
+                  @click="copyEmail(job)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="m22 6-10 7L2 6"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </button>
+                <span v-else class="text-muted">—</span>
+              </div>
+              <div>
                 <a
                   v-if="job.cvUrl"
                   :href="getCvDownloadUrl(job)"
@@ -473,6 +527,7 @@ onUnmounted(() => {
             <div class="job-card-head">
               <p class="card-kicker">{{ job.status }}</p>
               <h2>{{ job.title || "—" }}</h2>
+              <small v-if="job.topTechAndSkills" class="tech-skills">{{ job.topTechAndSkills }}</small>
             </div>
 
             <div class="row">
@@ -554,6 +609,37 @@ onUnmounted(() => {
                     d="M15 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"
                     fill="none"
                     stroke="currentColor"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                  />
+                </svg>
+              </button>
+              <span v-else class="text-muted">—</span>
+            </div>
+
+            <div class="row">
+              <span class="label">Email</span>
+              <button
+                v-if="job.email"
+                type="button"
+                class="icon-button action-link"
+                aria-label="Copy email"
+                title="Copy email"
+                @click="copyEmail(job)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                  />
+                  <path
+                    d="m22 6-10 7L2 6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
                     stroke-linejoin="round"
                     stroke-width="1.8"
                   />
@@ -743,6 +829,7 @@ onUnmounted(() => {
     minmax(7rem, 0.75fr)
     5.5rem
     5.5rem
+    5.5rem
     4.5rem;
   gap: 0.75rem;
   align-items: center;
@@ -768,6 +855,15 @@ onUnmounted(() => {
 .position-cell strong {
   font-size: 1rem;
   line-height: 1.35;
+}
+
+.position-cell small.tech-skills {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .company-cell {
@@ -808,6 +904,15 @@ onUnmounted(() => {
 .job-card-head h2 {
   margin: 0;
   font-size: 1.1rem;
+}
+
+.job-card-head small.tech-skills {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .card-kicker {
