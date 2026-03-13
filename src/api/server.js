@@ -114,7 +114,7 @@ async function handleRequest(req, res) {
       }
 
       const response = await fetch(job.cvUrl);
-      if (!response.ok || !response.body) {
+      if (!response.ok) {
         res.writeHead(502, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "failed to download cv" }));
         return;
@@ -125,16 +125,15 @@ async function handleRequest(req, res) {
         .replace(/^-+|-+$/g, "")
         .toLowerCase() || "cv";
 
+      const buffer = await response.arrayBuffer();
+
       res.writeHead(200, {
         "Content-Type": response.headers.get("content-type") || "application/pdf",
         "Content-Disposition": `attachment; filename="${safeTitle}.pdf"`,
+        "Content-Length": buffer.byteLength,
       });
 
-      for await (const chunk of response.body) {
-        res.write(chunk);
-      }
-
-      res.end();
+      res.end(Buffer.from(buffer));
     } catch (err) {
       console.error(err);
       res.writeHead(500, { "Content-Type": "application/json" });
