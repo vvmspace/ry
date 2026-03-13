@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 const {
   buildVacancyText,
   buildCvUrl,
+  parseMatchRate,
+  formatLogTime,
   generateCvForJob,
 } = require("./cvGenerationWorker");
 
@@ -45,7 +47,20 @@ test("buildCvUrl returns null for empty input", () => {
   assert.equal(buildCvUrl(null), null);
 });
 
-test("generateCvForJob calls API and returns cvUrl and greetingMessage", async () => {
+test("parseMatchRate handles number and string input", () => {
+  assert.equal(parseMatchRate(87), 87);
+  assert.equal(parseMatchRate("91"), 91);
+  assert.equal(parseMatchRate("73%"), 73);
+  assert.equal(parseMatchRate(""), null);
+  assert.equal(parseMatchRate("n/a"), null);
+});
+
+test("formatLogTime returns compact lowercase time", () => {
+  const date = new Date("2026-03-12T23:28:00Z");
+  assert.match(formatLogTime(date), /^\d{1,2}:\d{2}(am|pm)$/);
+});
+
+test("generateCvForJob calls API and returns cvUrl, greetingMessage and matchRate", async () => {
   const job = {
     title: "Dev",
     companyName: "Co",
@@ -67,14 +82,16 @@ test("generateCvForJob calls API and returns cvUrl and greetingMessage", async (
         success: true,
         pdf_url: "/files/cv/123.pdf",
         greeting_message: "Hello from API",
+        match_rate: "88",
       }),
     };
   };
 
   try {
-    const { cvUrl, greetingMessage } = await generateCvForJob(job);
+    const { cvUrl, greetingMessage, matchRate } = await generateCvForJob(job);
     assert.equal(cvUrl, "https://tma.kingofthehill.pro/files/cv/123.pdf");
     assert.equal(greetingMessage, "Hello from API");
+    assert.equal(matchRate, 88);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -24,6 +24,7 @@ const jobPageSchema = new mongoose.Schema(
     domain: String,
     cvUrl: String,
     greetingMessage: String,
+    matchRate: Number,
   },
   {
     timestamps: true,

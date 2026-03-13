@@ -23,6 +23,31 @@ function buildCvUrl(pdfUrl) {
   return `${API_BASE}${path}`;
 }
 
+function parseMatchRate(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().replace("%", "");
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function formatLogTime(date = new Date()) {
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+
+  return formatted.replace(/\s/g, "").toLowerCase();
+}
+
 async function generateCvForJob(job, options = {}) {
   const template = options.template ?? process.env.CV_TEMPLATE ?? "dark_calendly";
   const model = options.model ?? process.env.CV_MODEL ?? "gemini-3.1-pro-preview";
@@ -61,8 +86,9 @@ async function generateCvForJob(job, options = {}) {
     typeof data.greeting_message === "string" && data.greeting_message.trim()
       ? data.greeting_message.trim()
       : "";
+  const matchRate = parseMatchRate(data.match_rate);
 
-  return { cvUrl, greetingMessage, data };
+  return { cvUrl, greetingMessage, matchRate, data };
 }
 
 async function runCvGenerationWorker() {
@@ -77,16 +103,19 @@ async function runCvGenerationWorker() {
   console.log(`Generating CV for job: ${job.url}`);
 
   try {
-    const { cvUrl, greetingMessage } = await generateCvForJob(job);
+    const { cvUrl, greetingMessage, matchRate } = await generateCvForJob(job);
     if (!cvUrl) {
       throw new Error("API did not return pdf_url");
     }
 
     job.cvUrl = cvUrl;
     job.greetingMessage = greetingMessage;
+    job.matchRate = matchRate;
     job.status = "generated";
     await job.save();
-    console.log(`CV generated: ${cvUrl}`);
+    console.log(`CV generated: ${cvUrl} | matchRate: ${matchRate ?? "n/a"}`);
+    console.log(formatLogTime());
+    console.log("");
   } catch (err) {
     console.error("CV generation failed:", err);
     // job.status = "error";
@@ -107,6 +136,8 @@ if (require.main === module) {
 module.exports = {
   buildVacancyText,
   buildCvUrl,
+  parseMatchRate,
+  formatLogTime,
   generateCvForJob,
   runCvGenerationWorker,
 };

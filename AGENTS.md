@@ -63,10 +63,11 @@ Job page contains:
   "html_url": "string",
   "pdf_url": "string",
   "pdf_absolute_path": "string",
-  "greeting_message": "string"
+  "greeting_message": "string",
+  "match_rate": "number"
 }
 ```
-4. Gets greeting_message from response
+4. Gets greeting_message and match_rate from response
 5. Gets pdf_url from response
 6. cv_url=`https://tma.kingofthehill.pro${pdf_url}`
 7. saves with status `generated`
@@ -75,7 +76,12 @@ Job page contains:
 
 GET /api/v1/jobs
 
-list jobs ordered by updatedAt desc and `generated` status first with optional filters:
+list jobs ordered by:
+- status: generated -> error -> saved -> pending -> cancelled -> applied
+- matchRate desc
+- updatedAt desc
+
+with optional filters:
 - status
 - query= - desciption or title should include
 - exclude= - desciption and title should not include
@@ -96,11 +102,14 @@ Auto-refresh with select interval: off (default), 5s, 10s, 30s, 1m, 5m, 10m, 30m
 Clickable filter by status
 
 Fields:
+- Rate: match_rate (color coded: red < 50, yellow 50-75, green > 75) empty id empty
 - position_title: text
-- link to vacancy (applicationUrl)
+- company name: text
+- salary: text
+- domain (top level: jobs.level.co -> level.co, jobs.remoteok.com -> remoteok.com, ...)
 - status: select box with statuses, call update API on change and fetch vacancies list
+- link to vacancy (applicationUrl)
 - greeting_message copy icon if greeting_message is provided
-- salary
 - link to CV: PDF icon, download on click
 
 ## Acceptance criteria:

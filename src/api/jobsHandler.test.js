@@ -1,7 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { buildJobsFilter, escapeRegex, listJobs, updateJobById } = require("./jobsHandler");
+const {
+  buildJobsFilter,
+  escapeRegex,
+  listJobs,
+  updateJobById,
+  STATUS_SORT_ORDER,
+} = require("./jobsHandler");
 const JobPage = require("../models/jobPage");
 
 test("escapeRegex escapes special regex chars", () => {
@@ -49,24 +55,40 @@ test("buildJobsFilter combines multiple", () => {
   assert.ok(filter.$and.length >= 3);
 });
 
-test("listJobs builds aggregation with generated-first sort", async () => {
+test("listJobs builds aggregation with status, matchRate and updatedAt sort", async () => {
   const originalAggregate = JobPage.aggregate;
   let capturedPipeline = null;
 
   JobPage.aggregate = async (pipeline) => {
     capturedPipeline = pipeline;
-    return [{ _id: "job-1", status: "generated" }];
+    return [{ _id: "job-1", status: "generated", matchRate: 92 }];
   };
 
   try {
     const jobs = await listJobs({ status: "generated", domain: "example.com" });
-    assert.deepEqual(jobs, [{ _id: "job-1", status: "generated" }]);
+    assert.deepEqual(jobs, [{ _id: "job-1", status: "generated", matchRate: 92 }]);
     assert.ok(Array.isArray(capturedPipeline));
     assert.deepEqual(capturedPipeline[0], {
       $match: buildJobsFilter({ status: "generated", domain: "example.com" }),
     });
+    assert.deepEqual(capturedPipeline[1], {
+      $addFields: {
+        sortStatusOrder: {
+          $switch: {
+            branches: Object.entries(STATUS_SORT_ORDER).map(([status, order]) => ({
+              case: { $eq: ["$status", status] },
+              then: order,
+            })),
+            default: Object.keys(STATUS_SORT_ORDER).length,
+          },
+        },
+        sortMatchRate: {
+          $ifNull: ["$matchRate", -1],
+        },
+      },
+    });
     assert.deepEqual(capturedPipeline[2], {
-      $sort: { sortGeneratedFirst: 1, updatedAt: -1 },
+      $sort: { sortStatusOrder: 1, sortMatchRate: -1, updatedAt: -1 },
     });
   } finally {
     JobPage.aggregate = originalAggregate;

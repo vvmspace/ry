@@ -1,5 +1,14 @@
 const JobPage = require("../models/jobPage");
 
+const STATUS_SORT_ORDER = {
+  generated: 0,
+  error: 1,
+  saved: 2,
+  pending: 3,
+  cancelled: 4,
+  applied: 5,
+};
+
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -39,15 +48,25 @@ async function listJobs(queryParams) {
     { $match: filter },
     {
       $addFields: {
-        sortGeneratedFirst: {
-          $cond: [{ $eq: ["$status", "generated"] }, 0, 1],
+        sortStatusOrder: {
+          $switch: {
+            branches: Object.entries(STATUS_SORT_ORDER).map(([status, order]) => ({
+              case: { $eq: ["$status", status] },
+              then: order,
+            })),
+            default: Object.keys(STATUS_SORT_ORDER).length,
+          },
+        },
+        sortMatchRate: {
+          $ifNull: ["$matchRate", -1],
         },
       },
     },
-    { $sort: { sortGeneratedFirst: 1, updatedAt: -1 } },
+    { $sort: { sortStatusOrder: 1, sortMatchRate: -1, updatedAt: -1 } },
     {
       $project: {
-        sortGeneratedFirst: 0,
+        sortStatusOrder: 0,
+        sortMatchRate: 0,
       },
     },
   ]);
@@ -80,4 +99,5 @@ module.exports = {
   updateJobById,
   getJobById,
   ALLOWED_STATUSES,
+  STATUS_SORT_ORDER,
 };
