@@ -1,4 +1,5 @@
 const JobPage = require("../models/jobPage");
+const { eventBus, JOB_STATUS_CHANGED } = require("../events/jobEvents");
 
 const STATUS_SORT_ORDER = {
   started: 0,
@@ -80,12 +81,15 @@ async function updateJobById(id, body) {
   if (!status || typeof status !== "string" || !ALLOWED_STATUSES.includes(status)) {
     return { error: "invalid status", code: 400 };
   }
+  const existing = await JobPage.findById(id).lean();
+  if (!existing) return { error: "not found", code: 404 };
+  const fromStatus = existing.status;
   const job = await JobPage.findByIdAndUpdate(
     id,
     { status },
     { returnDocument: "after", runValidators: true }
   ).lean();
-  if (!job) return { error: "not found", code: 404 };
+  eventBus.emit(JOB_STATUS_CHANGED, { jobId: id, fromStatus, toStatus: status });
   return { job };
 }
 

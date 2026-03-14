@@ -103,37 +103,50 @@ test("updateJobById invalid status returns 400", async () => {
   assert.equal(secondResult.code, 400);
 });
 
-test("updateJobById not found returns 404", async () => {
-  const originalFindByIdAndUpdate = JobPage.findByIdAndUpdate;
-  JobPage.findByIdAndUpdate = () => ({
-    lean: async () => null,
-  });
+test("updateJobById not found returns 404 and does not emit event", async () => {
+  const { eventBus, JOB_STATUS_CHANGED } = require("../events/jobEvents");
+  const originalFindById = JobPage.findById;
+  JobPage.findById = () => ({ lean: async () => null });
+
+  let emitted = false;
+  const listener = () => { emitted = true; };
+  eventBus.on(JOB_STATUS_CHANGED, listener);
 
   try {
     const result = await updateJobById("507f1f77bcf86cd799439011", { status: "cancelled" });
     assert.equal(result.code, 404);
+    assert.equal(emitted, false);
   } finally {
-    JobPage.findByIdAndUpdate = originalFindByIdAndUpdate;
+    JobPage.findById = originalFindById;
+    eventBus.off(JOB_STATUS_CHANGED, listener);
   }
 });
 
-test("updateJobById updates and returns job", async () => {
+test("updateJobById updates and returns job, emits StatusChangedEvent", async () => {
+  const { eventBus, JOB_STATUS_CHANGED } = require("../events/jobEvents");
+  const originalFindById = JobPage.findById;
   const originalFindByIdAndUpdate = JobPage.findByIdAndUpdate;
-  JobPage.findByIdAndUpdate = (id, update, options) => ({
-    lean: async () => ({
-      _id: id,
-      status: update.status,
-      options,
-    }),
+  const id = "507f1f77bcf86cd799439011";
+
+  JobPage.findById = () => ({ lean: async () => ({ _id: id, status: "saved" }) });
+  JobPage.findByIdAndUpdate = (qid, update, options) => ({
+    lean: async () => ({ _id: qid, status: update.status, options }),
   });
 
+  let emittedEvent = null;
+  const listener = (payload) => { emittedEvent = payload; };
+  eventBus.on(JOB_STATUS_CHANGED, listener);
+
   try {
-    const result = await updateJobById("507f1f77bcf86cd799439011", { status: "applied" });
+    const result = await updateJobById(id, { status: "applied" });
     assert.ok(!result.error);
     assert.equal(result.job.status, "applied");
     assert.equal(result.job.options.returnDocument, "after");
     assert.equal(result.job.options.runValidators, true);
+    assert.deepEqual(emittedEvent, { jobId: id, fromStatus: "saved", toStatus: "applied" });
   } finally {
+    JobPage.findById = originalFindById;
     JobPage.findByIdAndUpdate = originalFindByIdAndUpdate;
+    eventBus.off(JOB_STATUS_CHANGED, listener);
   }
 });

@@ -39,6 +39,9 @@ const companyFilter = ref("");
 const titleFilter = ref("");
 const everywhereFilter = ref("");
 
+const liveStats = ref<Partial<Record<JobStatus, number>>>({});
+let statsSource: EventSource | null = null;
+
 const INTERVALS: { value: string; label: string; ms: number }[] = [
   { value: "0", label: "Off", ms: 0 },
   { value: "5", label: "5s", ms: 5_000 },
@@ -160,7 +163,7 @@ function getCvDownloadUrl(job: Job) {
     base = window.location.origin;
   }
   
-  return `${base}/api/jobs/${job._id}/cv`;
+  return `${base}/api/v1/jobs/${job._id}/cv`;
 }
 
 function getCvFileName(job: Job) {
@@ -217,7 +220,7 @@ function refreshJobs() {
 async function updateStatus(id: string, status: string) {
   try {
     const base = apiBase.value.replace(/\/$/, "");
-    const res = await fetch(`${base}/api/jobs/${id}`, {
+    const res = await fetch(`${base}/api/v1/jobs/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -331,6 +334,18 @@ watch(statusFilter, () => {
 });
 
 onMounted(() => {
+  const sseBase = apiBase.value.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
+  statsSource = new EventSource(`${sseBase}/api/v1/stats/stream`);
+  statsSource.onmessage = (e: MessageEvent) => {
+    try {
+      Object.assign(liveStats.value, JSON.parse(e.data));
+    } catch {}
+  };
+  statsSource.onerror = () => {
+    statsSource?.close();
+    statsSource = null;
+  };
+
   void fetchJobs();
   void fetchProfiles();
 
@@ -343,6 +358,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  statsSource?.close();
+  statsSource = null;
   if (intervalId) clearInterval(intervalId);
 });
 </script>
@@ -415,6 +432,20 @@ onUnmounted(() => {
             </select>
           </label>
         </div>
+      </section>
+
+      <section class="stats-widget" aria-label="Live job counts">
+        <button
+          v-for="status in STATUSES"
+          :key="status"
+          class="stats-badge"
+          :class="[`stats-badge--${status}`, { active: statusFilter === status }]"
+          type="button"
+          @click="toggleStatusFilter(status)"
+        >
+          <span class="stats-badge-label">{{ status }}</span>
+          <span class="stats-badge-count">{{ liveStats[status] ?? statusCounts[status] }}</span>
+        </button>
       </section>
 
       <section class="status-filters" aria-label="Status filters">
@@ -1215,4 +1246,54 @@ onUnmounted(() => {
   padding: 0;
   background: transparent;
 }
+
+.stats-widget {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.stats-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stats-badge.active,
+.stats-badge:hover {
+  border-color: rgba(125, 211, 252, 0.4);
+  background: rgba(125, 211, 252, 0.1);
+  color: var(--text);
+}
+
+.stats-badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(7, 17, 27, 0.2);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.stats-badge--pending .stats-badge-count { background: rgba(250, 204, 21, 0.15); color: #fde68a; }
+.stats-badge--saved .stats-badge-count { background: rgba(125, 211, 252, 0.15); color: #7dd3fc; }
+.stats-badge--generated .stats-badge-count { background: rgba(74, 222, 128, 0.15); color: #86efac; }
+.stats-badge--started .stats-badge-count { background: rgba(167, 139, 250, 0.15); color: #c4b5fd; }
+.stats-badge--applied .stats-badge-count { background: rgba(61, 217, 180, 0.15); color: #3dd9b4; }
+.stats-badge--cancelled .stats-badge-count { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
+.stats-badge--error .stats-badge-count { background: rgba(248, 113, 113, 0.15); color: #fca5a5; }
 </style>
