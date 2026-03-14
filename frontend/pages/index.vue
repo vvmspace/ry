@@ -597,16 +597,17 @@ onUnmounted(() => {
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
-                      d="M9 9a2 2 0 0 1 2-2h8v10a2 2 0 0 1-2 2h-8z"
+                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
                       fill="none"
                       stroke="currentColor"
                       stroke-linejoin="round"
                       stroke-width="1.8"
                     />
                     <path
-                      d="M15 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"
+                      d="m22 6-10 7L2 6"
                       fill="none"
                       stroke="currentColor"
+                      stroke-linecap="round"
                       stroke-linejoin="round"
                       stroke-width="1.8"
                     />
@@ -622,21 +623,8 @@ onUnmounted(() => {
                   @click="copyEmail(job)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-linejoin="round"
-                      stroke-width="1.8"
-                    />
-                    <path
-                      d="m22 6-10 7L2 6"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="1.8"
-                    />
+                    <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                    <path d="M16 12a4 4 0 0 1 4 4v1a1 1 0 0 0 2 0v-1a8 8 0 1 0-8 8h1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
                   </svg>
                 </button>
                 <button
@@ -806,21 +794,8 @@ onUnmounted(() => {
                   @click="copyEmail(job)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-linejoin="round"
-                      stroke-width="1.8"
-                    />
-                    <path
-                      d="m22 6-10 7L2 6"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="1.8"
-                    />
+                    <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                    <path d="M16 12a4 4 0 0 1 4 4v1a1 1 0 0 0 2 0v-1a8 8 0 1 0-8 8h1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
                   </svg>
                 </button>
                 <button
