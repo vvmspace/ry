@@ -7,8 +7,9 @@ const STATUS_SORT_ORDER = {
   error: 2,
   saved: 3,
   pending: 4,
-  cancelled: 5,
-  applied: 6,
+  applied: 5,
+  cancelled: 6,
+  expired: 7,
 };
 
 function escapeRegex(s) {
@@ -74,7 +75,7 @@ async function listJobs(queryParams) {
   ]);
 }
 
-const ALLOWED_STATUSES = ["pending", "saved", "generated", "started", "applied", "cancelled", "error"];
+const ALLOWED_STATUSES = ["pending", "saved", "generated", "started", "applied", "cancelled", "error", "expired"];
 
 async function updateJobById(id, body) {
   const status = body?.status;

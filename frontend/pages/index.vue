@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type JobStatus = "pending" | "saved" | "generated" | "started" | "applied" | "cancelled" | "error";
+type JobStatus = "pending" | "saved" | "generated" | "started" | "applied" | "cancelled" | "error" | "expired";
 
 type Job = {
   _id: string;
@@ -54,7 +54,7 @@ const INTERVALS: { value: string; label: string; ms: number }[] = [
   { value: "1800", label: "30m", ms: 1_800_000 },
 ];
 
-const STATUSES: JobStatus[] = ["pending", "saved", "generated", "started", "applied", "cancelled", "error"];
+const STATUSES: JobStatus[] = ["pending", "saved", "generated", "started", "applied", "cancelled", "error", "expired"];
 
 const statusCounts = computed(() => {
   const counts: Record<JobStatus, number> = {
@@ -65,6 +65,7 @@ const statusCounts = computed(() => {
     applied: 0,
     cancelled: 0,
     error: 0,
+    expired: 0,
   };
 
   for (const job of jobs.value) {

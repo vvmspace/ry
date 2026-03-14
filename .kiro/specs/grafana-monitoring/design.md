@@ -153,7 +153,7 @@ async function handleStatsStream(req, res) {
 
 ```js
 async function getCounts() {
-  const STATUSES = ['pending','saved','generated','started','applied','cancelled','error'];
+  const STATUSES = ['pending','saved','generated','started','applied','cancelled','error', 'expired'];
   const rows = await JobPage.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]);
   const map = Object.fromEntries(rows.map(r => [r._id, r.count]));
   return Object.fromEntries(STATUSES.map(s => [s, map[s] ?? 0]));

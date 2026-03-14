@@ -81,7 +81,7 @@ Job page contains:
 GET /api/v1/jobs
 
 list jobs ordered by:
-- status: started -> generated -> error -> saved -> pending -> cancelled -> applied
+- status: started -> generated -> error -> saved -> pending -> applied -> cancelled -> expired
 - matchRate desc
 - updatedAt desc
 
@@ -93,7 +93,7 @@ with optional filters:
 
 PATCH /api/jobs/:_id
 
-{ status: pending, saved, generated, started, applied, cancelled }
+{ status: pending, saved, generated, started, applied, cancelled, expired }
 
 ## Frontend
 Nuxt.js, adaptive, dark mode, mobile first, same port as API.
