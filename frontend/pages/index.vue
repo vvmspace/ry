@@ -27,6 +27,7 @@ const apiBase = ref(
 
 const linkedinProfile = ref("");
 const githubProfile = ref("");
+const b2bText = ref("");
 const blinkingButton = ref<string | null>(null);
 
 const jobs = ref<Job[]>([]);
@@ -309,6 +310,7 @@ async function fetchProfiles() {
       const data = await res.json();
       linkedinProfile.value = data.linkedin || "";
       githubProfile.value = data.github || "";
+      b2bText.value = data.b2b || "";
     }
   } catch (e) {
     // Silently fail - profiles are optional
@@ -376,7 +378,7 @@ onUnmounted(() => {
           <h1>Vacancies</h1>
           <p class="hero-copy">Generated CVs stay pinned at the top. Filter fast, update status inline, and open the application page directly.</p>
           
-          <div v-if="linkedinProfile || githubProfile" class="profile-links">
+          <div v-if="linkedinProfile || githubProfile || b2bText" class="profile-links">
             <button
               v-if="linkedinProfile"
               type="button"
@@ -408,6 +410,32 @@ onUnmounted(() => {
                 />
               </svg>
               GitHub
+            </button>
+            <button
+              v-if="b2bText"
+              type="button"
+              class="profile-btn"
+              aria-label="Copy B2B text"
+              title="Copy B2B text"
+              @click="copyToClipboard(b2bText)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M9 9a2 2 0 0 1 2-2h8v10a2 2 0 0 1-2 2h-8z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linejoin="round"
+                  stroke-width="1.8"
+                />
+                <path
+                  d="M15 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linejoin="round"
+                  stroke-width="1.8"
+                />
+              </svg>
+              B2B
             </button>
           </div>
         </div>
