@@ -97,7 +97,15 @@ async function saveJobLinks(urls) {
 }
 
 async function parseSearchPage(page, searchUrl) {
-  await page.goto(searchUrl, { waitUntil: "networkidle0" });
+  try {
+    await page.goto(searchUrl, { waitUntil: "networkidle0", timeout: 30000 });
+  } catch (err) {
+    if (err.name === "TimeoutError") {
+      console.warn(`Timeout loading ${searchUrl}, trying to parse whatever loaded...`);
+    } else {
+      throw err;
+    }
+  }
 
   const html = await page.content();
   const links = extractJobLinksFromHtml(html, searchUrl);
@@ -115,19 +123,6 @@ async function runJobsListWorker() {
   }
 
   await connectMongo();
-  console.log("Connected to MongoDB successfully");
-  console.log("Database name:", mongoose.connection.db.databaseName);
-  
-  // Test database write
-  const testUrl = `https://test-${Date.now()}.com`;
-  const testResult = await JobPage.updateOne(
-    { url: testUrl },
-    { $setOnInsert: { status: "pending" } },
-    { upsert: true }
-  );
-  console.log("Test write result:", testResult);
-  await JobPage.deleteOne({ url: testUrl });
-  console.log("Database write test passed");
 
   const browser = await puppeteer.launch({
     userDataDir: process.env.USER_DIR || "userdir",
@@ -142,20 +137,10 @@ async function runJobsListWorker() {
   try {
     const page = (await browser.pages())[0] || (await browser.newPage());
 
-    page.on("console", (msg) => {
-      const type = msg.type();
-      const text = msg.text();
-
-      if (type === "error") {
-        console.error("[browser console][error]", text);
-      } else {
-        console.log("[browser console]", type, text);
-      }
-    });
-
     let total = 0;
 
     for (const url of searchUrls) {
+      console.log(`Parsing ${url} ...`);
       const count = await parseSearchPage(page, url);
       console.log(`Parsed ${count} jobs from ${url}`);
       total += count;
