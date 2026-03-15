@@ -47,7 +47,7 @@ In case of bulk processing like parsing the list - write to the state by the end
 
 Check optional PENDING_SUCCESS_INTERVAL, PENDING_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - PENDING_SUCCESS_INTERVAL) < inSeconds(state.last.success.pending) or NOW_S - PENDING_ERROR_INTERVAL) < inSeconds(state.last.error.pending) then process.exit();
 
-Parse all jobs (links like https://remoteyeah.com/jobs/...), first page only and save to db with status `pending`. (ex: jobs_list_page.example.html) with job url and jobs list url.
+Parse all jobs (links like https://remoteyeah.com/jobs/...), first page only and save to db with status `pending`. (ex: html_examples/remoteyeah/jobs_list_page.example.html) with job url and jobs list url.
 Ignore urls with stop words from STOP_WORDS env variable case insensitive.
 If page with same url is exist in database - ignore it.
 
@@ -55,7 +55,7 @@ If page with same url is exist in database - ignore it.
 In case of success - saves current datetime to state.json: state.last.success.pending, in case of error (or total saved 0) to state.last.error.pending
 
 ### Job Page Parser Worker
-ex: job_page.example.html
+ex: html_examples/remoteyeah/job_page.example.html
 0. Check optional SAVED_SUCCESS_INTERVAL, SAVED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.success.saved) or NOW_S - SAVED_ERROR_INTERVAL) < inSeconds(state.last.error.saved) then process.exit();
 
 Takes one `pending` job from db.
