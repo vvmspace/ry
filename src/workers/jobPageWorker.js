@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
+const { shouldSkip, setLastTs } = require("../libs/state");
 
 function extractJobDataFromHtml(html) {
     const $ = cheerio.load(html);
@@ -15,6 +16,14 @@ function extractJobDataFromHtml(html) {
         companyName: "",
         salary: "",
         description: "",
+        // optional
+        sourceJobTitle: "",
+        sourceJobType: "",
+        sourceExperienceLevel: "",
+        degreeRequired: undefined,
+        skills: [],
+        locations: [],
+        benefits: [],
     };
 
     // 1. Try JSON-LD first
@@ -23,42 +32,132 @@ function extractJobDataFromHtml(html) {
         try {
             const content = $(script).html();
             const parsed = JSON.parse(content);
-            if (parsed["@type"] === "JobPosting") {
-                data.title = parsed.title || data.title;
-                data.description = parsed.description || data.description;
-                if (parsed.hiringOrganization && parsed.hiringOrganization.name) {
-                    data.companyName = parsed.hiringOrganization.name;
-                }
+            if (parsed["@type"] !== "JobPosting") continue;
 
-                // Extract salary
-                if (parsed.baseSalary && parsed.baseSalary.value) {
-                    const val = parsed.baseSalary.value;
-                    if (val.minValue && val.maxValue) {
-                        data.salary = `${val.minValue} - ${val.maxValue} ${parsed.baseSalary.currency || ''} / ${val.unitText || 'YEAR'}`;
-                    } else if (val.value) {
-                        data.salary = `${val.value} ${parsed.baseSalary.currency || ''} / ${val.unitText || 'YEAR'}`;
-                    }
+            data.title = parsed.title || data.title;
+            data.description = parsed.description || data.description;
+
+            if (parsed.hiringOrganization?.name) {
+                data.companyName = parsed.hiringOrganization.name;
+            }
+
+            // Salary
+            if (parsed.baseSalary?.value) {
+                const val = parsed.baseSalary.value;
+                const cur = parsed.baseSalary.currency || "";
+                const unit = val.unitText || "YEAR";
+                if (val.minValue && val.maxValue) {
+                    data.salary = `${cur} ${val.minValue}—${cur} ${val.maxValue} / ${unit}`.trim();
+                } else if (val.value) {
+                    data.salary = `${cur} ${val.value} / ${unit}`.trim();
                 }
             }
+
+            // Job type (employmentType: ["FULL_TIME"] -> "Full-time")
+            if (parsed.employmentType) {
+                const types = Array.isArray(parsed.employmentType) ? parsed.employmentType : [parsed.employmentType];
+                const typeMap = { FULL_TIME: "Full-time", PART_TIME: "Part-time", CONTRACTOR: "Contract", TEMPORARY: "Temporary", INTERN: "Internship" };
+                data.sourceJobType = types.map(t => typeMap[t] || t).join(", ");
+            }
+
+            // Experience level (monthsOfExperience -> rough mapping)
+            if (parsed.experienceRequirements?.monthsOfExperience) {
+                const months = parsed.experienceRequirements.monthsOfExperience;
+                if (months <= 12) data.sourceExperienceLevel = "Entry";
+                else if (months <= 36) data.sourceExperienceLevel = "Mid";
+                else data.sourceExperienceLevel = "Senior";
+            }
+
+            // Skills
+            if (parsed.skills) {
+                data.skills = parsed.skills.split(",").map(s => s.trim()).filter(Boolean);
+            }
+
+            // Locations
+            if (parsed.applicantLocationRequirements) {
+                const locs = Array.isArray(parsed.applicantLocationRequirements)
+                    ? parsed.applicantLocationRequirements
+                    : [parsed.applicantLocationRequirements];
+                data.locations = locs.map(l => l.name).filter(Boolean);
+            }
+
+            // Benefits
+            if (parsed.jobBenefits) {
+                data.benefits = parsed.jobBenefits.split(",").map(s => s.trim()).filter(Boolean);
+            }
+
+            // Degree required
+            if (typeof parsed.educationRequirements !== "undefined") {
+                data.degreeRequired = true;
+            }
+
+            break;
         } catch (e) {
             // ignore JSON parse errors
         }
     }
 
-    // Fallback to DOM parsing if missing
+    // 2. DOM fallbacks for required fields
     if (!data.title) {
-        data.title = $('h1').first().text().trim();
+        // strip "Remote " prefix if present
+        const h1 = $('h1').first().text().trim();
+        data.title = h1.replace(/^Remote\s+/i, "").trim();
     }
 
     if (!data.companyName) {
-        // Look for company link/text near title
-        data.companyName = $('h1').parent().find('a[href*="/company/"]').first().text().trim();
+        data.companyName = $('a[href*="/remote-companies/"]').first().text().trim()
+            || $('h1').parent().find('a[href*="/company/"]').first().text().trim();
+    }
+
+    if (!data.salary) {
+        data.salary = $(".tag--salary").first().text().trim();
+    }
+
+    // 3. DOM fallbacks for optional fields
+    if (!data.sourceJobTitle) {
+        // "Job title" section tags
+        const jobTitleSection = $('h2').filter((_, el) => $(el).text().trim() === "Job title").first();
+        data.sourceJobTitle = jobTitleSection.closest(".flex").find(".tag").first().text().trim();
+    }
+
+    if (!data.sourceJobType) {
+        const jobTypeSection = $('h2').filter((_, el) => $(el).text().trim() === "Job type").first();
+        data.sourceJobType = jobTypeSection.closest(".flex").find(".tag").first().text().trim();
+    }
+
+    if (!data.sourceExperienceLevel) {
+        const expSection = $('h2').filter((_, el) => $(el).text().trim() === "Experience level").first();
+        data.sourceExperienceLevel = expSection.closest(".flex").find(".tag").first().text().trim();
+    }
+
+    if (typeof data.degreeRequired === "undefined") {
+        const degreeText = $('a[href*="no-degree"]').text().toLowerCase();
+        if (degreeText.includes("no degree")) data.degreeRequired = false;
+    }
+
+    if (!data.skills.length) {
+        const skillsSection = $('h2').filter((_, el) => $(el).text().trim() === "Skills").first();
+        data.skills = skillsSection.closest(".flex").find(".tag").map((_, el) => $(el).text().trim()).get().filter(Boolean);
+    }
+
+    if (!data.locations.length) {
+        const locSection = $('h2').filter((_, el) => /location/i.test($(el).text())).first();
+        data.locations = locSection.closest(".flex").find(".tag").map((_, el) => $(el).text().trim()).get().filter(Boolean);
+    }
+
+    if (!data.benefits.length) {
+        const benSection = $('h2').filter((_, el) => /benefit/i.test($(el).text())).first();
+        data.benefits = benSection.closest(".flex").find(".tag").map((_, el) => $(el).text().trim()).get().filter(Boolean);
     }
 
     return data;
 }
 
 async function runJobPageWorker() {
+    if (shouldSkip('SAVED_SUCCESS_INTERVAL', 'SAVED_ERROR_INTERVAL', 'saved')) {
+        process.exit(0);
+    }
+
     await connectMongo();
 
     const browser = await puppeteer.launch({
@@ -129,6 +228,15 @@ async function runJobPageWorker() {
         job.description = jobData.description;
         job.applicationUrl = applicationUrl;
 
+        // Optional fields
+        if (jobData.sourceJobTitle) job.sourceJobTitle = jobData.sourceJobTitle;
+        if (jobData.sourceJobType) job.sourceJobType = jobData.sourceJobType;
+        if (jobData.sourceExperienceLevel) job.sourceExperienceLevel = jobData.sourceExperienceLevel;
+        if (typeof jobData.degreeRequired === "boolean") job.degreeRequired = jobData.degreeRequired;
+        if (jobData.skills?.length) job.skills = jobData.skills;
+        if (jobData.locations?.length) job.locations = jobData.locations;
+        if (jobData.benefits?.length) job.benefits = jobData.benefits;
+
         if (applicationUrl) {
             try {
                 const urlObj = new URL(applicationUrl);
@@ -142,9 +250,11 @@ async function runJobPageWorker() {
 
         await job.save();
         console.log(`Saved job data for ${job.url}`);
+        setLastTs('success', 'saved');
 
     } catch (err) {
         console.error("Error processing job:", err);
+        setLastTs('error', 'saved');
     } finally {
         await browser.close();
         await mongoose.disconnect();

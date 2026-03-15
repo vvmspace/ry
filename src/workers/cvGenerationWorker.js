@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
+const { shouldSkip, setLastTs } = require("../libs/state");
 
 const API_BASE = "https://tma.kingofthehill.pro";
 const GENERATE_CV_PATH = "/api/v1/generate_cv";
@@ -104,6 +105,10 @@ async function generateCvForJob(job, options = {}) {
 }
 
 async function runCvGenerationWorker() {
+  if (shouldSkip('GENERATED_SUCCESS_INTERVAL', 'GENERATION_ERROR_INTERVAL', 'generated')) {
+    process.exit(0);
+  }
+
   await connectMongo();
 
   const job = await JobPage.findOne({ status: "saved" });
@@ -131,10 +136,10 @@ async function runCvGenerationWorker() {
     console.log(`CV generated: ${cvUrl} | matchRate: ${matchRate ?? "n/a"}`);
     console.log(formatLogTime());
     console.log("");
+    setLastTs('success', 'generated');
   } catch (err) {
     console.error("CV generation failed:", err);
-    // job.status = "error";
-    // await job.save();
+    setLastTs('error', 'generated');
     throw err;
   } finally {
     await mongoose.disconnect();

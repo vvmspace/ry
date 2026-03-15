@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
+const { shouldSkip, setLastTs } = require("../libs/state");
 
 function parseSearchUrls(envValue) {
   const raw = envValue ?? process.env.REMOTEYEAH_SEARCH_URLS;
@@ -116,6 +117,10 @@ async function parseSearchPage(page, searchUrl) {
 }
 
 async function runJobsListWorker() {
+  if (shouldSkip('PENDING_SUCCESS_INTERVAL', 'PENDING_ERROR_INTERVAL', 'pending')) {
+    process.exit(0);
+  }
+
   const searchUrls = parseSearchUrls();
   if (searchUrls.length === 0) {
     console.log("No search urls configured, exiting");
@@ -147,6 +152,7 @@ async function runJobsListWorker() {
     }
 
     console.log(`Total jobs found: ${total}`);
+    setLastTs('success', 'pending');
   } finally {
     await browser.close();
     await mongoose.disconnect();

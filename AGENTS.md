@@ -16,10 +16,36 @@ Node.js
 Mongoose
 Puppeteer
 
+## State: state.json
+
+File under .gitignore. It may be empty, broken, or not exist.
+
+stores workers state and result:
+
+```json
+{
+  "last": {
+    "success": {
+      "pending": "date",
+      "saved": "date",
+      "generated": "date"
+    },
+    "error": {
+      "pending": "date",
+      "saved": "date",
+      "generated": "date"
+    }
+  }
+}
+```
+
+In case of bulk processing like parsing the list - write to the state by the end of execution.
 
 ## Parsing steps
 
 ### Jobs List Parser Worker
+
+Check optional PENDING_SUCCESS_INTERVAL, PENDING_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - PENDING_SUCCESS_INTERVAL) < inSeconds(state.last.success.pending) or NOW_S - PENDING_SUCCESS_INTERVAL) < inSeconds(state.last.error.pending) then process.exit();
 
 Parse all jobs (links like https://remoteyeah.com/jobs/...), first page only and save to db with status `pending`. (ex: jobs_list_page.example.html) with job url and jobs list url.
 Ignore urls with stop words from STOP_WORDS env variable case insensitive.
@@ -28,12 +54,29 @@ If page with same url is exist in database - ignore it.
 
 ### Job Page Parser Worker
 ex: job_page.example.html
+0. Check optional SAVED_SUCCESS_INTERVAL, SAVED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
 
 Takes one `pending` job from db.
-Parsing it.
+Parsing it. 
+Required:
+    title: String,
+    companyName: String,
+    salary: String,
+    description: String,
+
+Optional:
+  Job title - sourceJobTitle
+  Job type - sourceJobType (Full-time/...)
+  Experience level - sourceExperienceLevel (Internship/Entry/Senior)
+  Degree requirement - degreeRequired (boolean)
+  Skills - skills ['Machine Learning', 'TypeScript']
+  Location requirements - locations ['Serbia', 'Armenia']
+  Benefits - benefits ['Medical benefits', 'Relocation', ...]
+
 Clicks apply -> gets opened (after redirect ...) link
 Gets domain as additional field.
 Saves job to db with status `saved`.
+In case of success - saves current datetime to state.json: state.last.success.pending, in case of error (or empty) to state.last.error.pending
 
 ## Job page
 
@@ -44,16 +87,31 @@ Job page contains:
 - description
 - application form - it is a hidden link: when you click apply - it opens link with application page. We need to extract application page url.
 
+in case of success - saves current datetime to state.json: state.last.success.saved, in case of error to state.last.error.saved
 
 ## CV Generation Worker
 
-1. Gets 1 `saved` from DB.
+0. Check optional GENERATED_SUCCESS_INTERVAL, GENERATION_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - GENERATION_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - GENERATION_SUCCESS_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
+
+1. Gets 1 `saved` from DB:
+
+Check priority.json file like:
+```
+{
+    "generate": {
+        "domain": ["ashbyhq.com"], // domain includes "ashbyhq.com" case insensitive
+        "description": ["nestjs"] // description includes "nestjs" case insensitive
+    }
+}
+```
+
+strings means: includes in key, not equals
+order by count of filters then by updatedAt desc
 
 2. POST https://tma.kingofthehill.pro/api/v1/generate_cv
 ```json
 {
     "vacancy_text": "Put title + vacancy text there",
-    "template": "dark_calendly",
     "model": "gemini-3.1-pro-preview"
 }
 ```
@@ -75,6 +133,7 @@ Job page contains:
 5. Gets pdf_url from response
 6. cv_url=`https://tma.kingofthehill.pro${pdf_url}`
 7. saves with status `generated`
+8. in case of success - saves current datetime to state.json: state.last.success.generated, in case of error to state.last.error.generated
 
 ## API
 

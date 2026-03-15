@@ -28,6 +28,23 @@ const jobPageSchema = new mongoose.Schema(
     email: String,
     topTechAndSkills: String,
     whyAnswer: String,
+    /** Optional:
+     * Job title - sourceJobTitle
+      Job type - sourceJobType (Full-time/...)
+      Experience level - sourceExperienceLevel (Internship/Entry/Senior)
+      Degree requirement - degreeRequired (boolean)
+      Skills - skills ['Machine Learning', 'TypeScript']
+      Location requirements - locations ['Serbia', 'Armenia']
+      Benefits - benefits ['Medical benefits', 'Relocation', ...]
+     */
+    
+    sourceJobTitle: String,
+    sourceJobType: String,
+    sourceExperienceLevel: String,
+    degreeRequired: Boolean,
+    skills: [String],
+    locations: [String],
+    benefits: [String],
   },
   {
     timestamps: true,
