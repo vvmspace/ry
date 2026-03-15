@@ -95,6 +95,7 @@ async function saveJobLinks(urls) {
     }
   }
   console.log(`Saved ${saved} new jobs, skipped ${skipped} existing jobs`);
+  return { saved, skipped };
 }
 
 async function parseSearchPage(page, searchUrl) {
@@ -110,10 +111,9 @@ async function parseSearchPage(page, searchUrl) {
 
   const html = await page.content();
   const links = extractJobLinksFromHtml(html, searchUrl);
+  const { saved, skipped } = await saveJobLinks(links);
 
-  await saveJobLinks(links);
-
-  return links.length;
+  return { found: links.length, saved, skipped };
 }
 
 async function runJobsListWorker() {
@@ -142,17 +142,26 @@ async function runJobsListWorker() {
   try {
     const page = (await browser.pages())[0] || (await browser.newPage());
 
-    let total = 0;
+    let totalFound = 0;
+    let totalSaved = 0;
 
     for (const url of searchUrls) {
       console.log(`Parsing ${url} ...`);
-      const count = await parseSearchPage(page, url);
-      console.log(`Parsed ${count} jobs from ${url}`);
-      total += count;
+      const { found, saved } = await parseSearchPage(page, url);
+      console.log(`${url}: found=${found}, saved=${saved}`);
+      totalFound += found;
+      totalSaved += saved;
     }
 
-    console.log(`Total jobs found: ${total}`);
-    setLastTs('success', 'pending');
+    console.log(`Total found: ${totalFound}, total saved: ${totalSaved}`);
+    if (totalSaved === 0) {
+      setLastTs('error', 'pending');
+    } else {
+      setLastTs('success', 'pending');
+    }
+  } catch (err) {
+    setLastTs('error', 'pending');
+    throw err;
   } finally {
     await browser.close();
     await mongoose.disconnect();

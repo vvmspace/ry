@@ -175,6 +175,7 @@ async function runJobPageWorker() {
         const job = await JobPage.findOne({ status: "pending" });
         if (!job) {
             console.log("No pending jobs found. Exiting.");
+            setLastTs('error', 'saved');
             return;
         }
 

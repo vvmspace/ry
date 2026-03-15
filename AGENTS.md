@@ -52,9 +52,11 @@ Ignore urls with stop words from STOP_WORDS env variable case insensitive.
 If page with same url is exist in database - ignore it.
 
 
+In case of success - saves current datetime to state.json: state.last.success.pending, in case of error (or total saved 0) to state.last.error.pending
+
 ### Job Page Parser Worker
 ex: job_page.example.html
-0. Check optional SAVED_SUCCESS_INTERVAL, SAVED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
+0. Check optional SAVED_SUCCESS_INTERVAL, SAVED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.success.saved) or NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.error.saved) then process.exit();
 
 Takes one `pending` job from db.
 Parsing it. 
@@ -76,7 +78,6 @@ Optional:
 Clicks apply -> gets opened (after redirect ...) link
 Gets domain as additional field.
 Saves job to db with status `saved`.
-In case of success - saves current datetime to state.json: state.last.success.pending, in case of error (or empty) to state.last.error.pending
 
 ## Job page
 
@@ -87,7 +88,7 @@ Job page contains:
 - description
 - application form - it is a hidden link: when you click apply - it opens link with application page. We need to extract application page url.
 
-in case of success - saves current datetime to state.json: state.last.success.saved, in case of error to state.last.error.saved
+in case of success - saves current datetime to state.json: state.last.success.saved, in case of error of no pending to state.last.error.saved
 
 ## CV Generation Worker
 
