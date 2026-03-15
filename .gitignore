@@ -3,3 +3,5 @@ userdir
 .env
 ud2
 .vscode
+tmp
+state.json

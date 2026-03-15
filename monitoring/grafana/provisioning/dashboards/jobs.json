@@ -47,6 +47,82 @@
         "textMode": "auto",
         "colorMode": "background"
       }
+    },
+    {
+      "id": 3,
+      "type": "barchart",
+      "title": "Match Rate Buckets — generated",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "job_match_rate_bucket{status=\"generated\"}", "legendFormat": "{{bucket}}", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": {
+        "xField": "Time",
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "id": 4,
+      "type": "barchart",
+      "title": "Match Rate Buckets — applied",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "job_match_rate_bucket{status=\"applied\"}", "legendFormat": "{{bucket}}", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": {
+        "xField": "Time",
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "id": 5,
+      "type": "barchart",
+      "title": "Match Rate Buckets — cancelled",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "job_match_rate_bucket{status=\"cancelled\"}", "legendFormat": "{{bucket}}", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": {
+        "xField": "Time",
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "Match Rate Buckets — expired",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "job_match_rate_bucket{status=\"expired\"}", "legendFormat": "{{bucket}}", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": {
+        "xField": "Time",
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } }
+      }
     }
   ]
 }
