@@ -2,9 +2,66 @@ require("dotenv").config();
 
 const mongoose = require("mongoose");
 
+const fs = require('fs');
+const path = require('path');
+
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
 const { shouldSkip, setLastTs } = require("../libs/state");
+
+const PRIORITY_PATH = path.resolve(process.cwd(), 'priority.json');
+
+function loadPriority(section) {
+  try {
+    const raw = fs.readFileSync(PRIORITY_PATH, 'utf8');
+    return JSON.parse(raw)?.[section] ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Build aggregate pipeline that picks 1 `saved` job ordered by:
+ * 1. count of priority filter matches (desc)
+ * 2. updatedAt (desc)
+ */
+async function findNextSavedJob(priority) {
+  // Build $addFields expressions: one $cond per filter string per field
+  const scoreExprs = [];
+
+  for (const [field, values] of Object.entries(priority)) {
+    if (!Array.isArray(values)) continue;
+    for (const val of values) {
+      if (!val) continue;
+      const regex = val.toLowerCase();
+      scoreExprs.push({
+        $cond: [
+          { $regexMatch: { input: { $toLower: { $ifNull: [`$${field}`, ''] } }, regex } },
+          1,
+          0,
+        ],
+      });
+    }
+  }
+
+  if (!scoreExprs.length) {
+    // No priority rules — simple findOne
+    return JobPage.findOne({ status: 'saved' }).sort({ updatedAt: -1 });
+  }
+
+  const priorityScore = scoreExprs.length === 1
+    ? scoreExprs[0]
+    : { $add: scoreExprs };
+
+  const [doc] = await JobPage.aggregate([
+    { $match: { status: 'saved' } },
+    { $addFields: { _priorityScore: priorityScore } },
+    { $sort: { _priorityScore: -1, updatedAt: -1 } },
+    { $limit: 1 },
+  ]);
+
+  return doc ? JobPage.findById(doc._id) : null;
+}
 
 const API_BASE = "https://tma.kingofthehill.pro";
 const GENERATE_CV_PATH = "/api/v1/generate_cv";
@@ -111,7 +168,8 @@ async function runCvGenerationWorker() {
 
   await connectMongo();
 
-  const job = await JobPage.findOne({ status: "saved" });
+  const priority = loadPriority('generate');
+  const job = await findNextSavedJob(priority);
   if (!job) {
     console.log("No saved jobs found. Exiting.");
     return;
