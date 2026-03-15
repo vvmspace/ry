@@ -15,7 +15,11 @@ function readState() {
 }
 
 function writeState(state) {
-  fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[state] Failed to write state.json:', err);
+  }
 }
 
 function getLastTs(state, type, key) {
@@ -30,6 +34,7 @@ function setLastTs(type, key) {
   if (!state.last) state.last = {};
   if (!state.last[type]) state.last[type] = {};
   state.last[type][key] = new Date().toISOString();
+  console.log(`[state] ${type}.${key} = ${state.last[type][key]}`);
   writeState(state);
 }
 

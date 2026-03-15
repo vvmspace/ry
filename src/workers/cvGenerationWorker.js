@@ -163,16 +163,25 @@ async function generateCvForJob(job, options = {}) {
 
 async function runCvGenerationWorker() {
   console.log('\x1b[35m\x1b[1m🤖  CV GENERATION WORKER\x1b[0m');
-  if (shouldSkip('GENERATED_SUCCESS_INTERVAL', 'GENERATION_ERROR_INTERVAL', 'generated')) {
+  if (shouldSkip('GENERATED_SUCCESS_INTERVAL', 'GENERATED_ERROR_INTERVAL', 'generated')) {
     process.exit(0);
   }
 
   await connectMongo();
 
-  const priority = loadPriority('generate');
-  const job = await findNextSavedJob(priority);
+  let job;
+  try {
+    const priority = loadPriority('generate');
+    job = await findNextSavedJob(priority);
+  } catch (err) {
+    console.error("Failed to fetch job from DB:", err);
+    setLastTs('error', 'generated');
+    throw err;
+  }
+
   if (!job) {
     console.log("No saved jobs found. Exiting.");
+    setLastTs('error', 'generated');
     return;
   }
 

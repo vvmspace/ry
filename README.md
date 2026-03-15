@@ -40,7 +40,7 @@ npm run start       # builds frontend and starts API
 | `SAVED_SUCCESS_INTERVAL` | Cooldown after successful job page parse |
 | `SAVED_ERROR_INTERVAL` | Cooldown after failed job page parse |
 | `GENERATED_SUCCESS_INTERVAL` | Cooldown after successful CV generation |
-| `GENERATION_ERROR_INTERVAL` | Cooldown after failed CV generation |
+| `GENERATED_ERROR_INTERVAL` | Cooldown after failed CV generation |
 
 ## Workers
 

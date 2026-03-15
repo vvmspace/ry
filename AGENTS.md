@@ -45,7 +45,7 @@ In case of bulk processing like parsing the list - write to the state by the end
 
 ### Jobs List Parser Worker
 
-Check optional PENDING_SUCCESS_INTERVAL, PENDING_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - PENDING_SUCCESS_INTERVAL) < inSeconds(state.last.success.pending) or NOW_S - PENDING_SUCCESS_INTERVAL) < inSeconds(state.last.error.pending) then process.exit();
+Check optional PENDING_SUCCESS_INTERVAL, PENDING_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - PENDING_SUCCESS_INTERVAL) < inSeconds(state.last.success.pending) or NOW_S - PENDING_ERROR_INTERVAL) < inSeconds(state.last.error.pending) then process.exit();
 
 Parse all jobs (links like https://remoteyeah.com/jobs/...), first page only and save to db with status `pending`. (ex: jobs_list_page.example.html) with job url and jobs list url.
 Ignore urls with stop words from STOP_WORDS env variable case insensitive.
@@ -56,7 +56,7 @@ In case of success - saves current datetime to state.json: state.last.success.pe
 
 ### Job Page Parser Worker
 ex: job_page.example.html
-0. Check optional SAVED_SUCCESS_INTERVAL, SAVED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.success.saved) or NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.error.saved) then process.exit();
+0. Check optional SAVED_SUCCESS_INTERVAL, SAVED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.success.saved) or NOW_S - SAVED_ERROR_INTERVAL) < inSeconds(state.last.error.saved) then process.exit();
 
 Takes one `pending` job from db.
 Parsing it. 
@@ -92,7 +92,7 @@ in case of success - saves current datetime to state.json: state.last.success.sa
 
 ## CV Generation Worker
 
-0. Check optional GENERATED_SUCCESS_INTERVAL, GENERATION_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - GENERATION_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - GENERATION_SUCCESS_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
+0. Check optional GENERATED_SUCCESS_INTERVAL, GENERATED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - GENERATED_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - GENERATED_ERROR_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
 
 1. Gets 1 `saved` from DB:
 
