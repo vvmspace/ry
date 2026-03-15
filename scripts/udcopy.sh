@@ -1,7 +1,7 @@
 #!/bin/bash
 mkdir -p $2/Default
 cp $1/Default/Cookies $2/Default/Cookies
-cp $1/Local\ State $2/Local\ Storage
+cp $1/Local\ State $2/Local\ State
 
 if [ $# -eq 4 ]
 then
