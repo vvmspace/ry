@@ -117,6 +117,7 @@ async function parseSearchPage(page, searchUrl) {
 }
 
 async function runJobsListWorker() {
+  console.log('\x1b[36m\x1b[1m🔍  JOBS LIST WORKER\x1b[0m');
   if (shouldSkip('PENDING_SUCCESS_INTERVAL', 'PENDING_ERROR_INTERVAL', 'pending')) {
     process.exit(0);
   }

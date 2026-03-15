@@ -154,6 +154,7 @@ function extractJobDataFromHtml(html) {
 }
 
 async function runJobPageWorker() {
+    console.log('\x1b[33m\x1b[1m📄  JOB PAGE WORKER\x1b[0m');
     if (shouldSkip('SAVED_SUCCESS_INTERVAL', 'SAVED_ERROR_INTERVAL', 'saved')) {
         process.exit(0);
     }
