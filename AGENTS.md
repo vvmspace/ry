@@ -89,7 +89,7 @@ Clicks apply -> gets opened (after redirect ...) link
 Gets domain as additional field.
 Saves job to db with status `saved`.
 
-## Job page
+#### Job page
 
 Job page contains:
 - title
@@ -100,7 +100,21 @@ Job page contains:
 
 in case of success - saves current datetime to state.json: state.last.success.saved, in case of error of no pending to state.last.error.saved
 
-## CV Generation Worker
+### Links fixer worker
+
+<context>Some links was not parsed properly, when browser wasn't logged in to remoteyeah.com, as result we have `applicationUrl` with url like `https://remoteyeah.com/login?redirect_url=https%3A%2F%2Fremoteyeah.com%2Fjobs%2Fremote-senior-frontend-software-engineer-reactjs-and-nextjs-mindera`.</context>
+
+We need to fix it:
+1. Find 1 not `applied`, not `expired`, not `error` job with `applicationUrl` like `remoteyeah.com/login`. (`matchRate` desc, `createdAt` desc)
+2. Open `url` again
+3. click apply
+4. get opened after redirect `applicationUrl`
+5. update `applicationUrl`: if `applicationUrl` contains `remoteyeah.com/login` then use `url`
+
+Use same methods as `Job Parser Worker`
+
+
+### CV Generation Worker
 
 0. Check optional GENERATED_SUCCESS_INTERVAL, GENERATED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - GENERATED_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - GENERATED_ERROR_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
 
