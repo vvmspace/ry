@@ -1,5 +1,5 @@
 'use strict';
-const { b2b } = require('../../constants/text.constants.js');
+const { b2b } = require('../../../constants/text.constants.js');
 
 function handleProfiles(req, res) {
   res.writeHead(200, { 'Content-Type': 'application/json' });
