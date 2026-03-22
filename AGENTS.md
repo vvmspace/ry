@@ -41,6 +41,16 @@ stores workers state and result:
 
 In case of bulk processing like parsing the list - write to the state by the end of execution.
 
+## questions.json
+
+Stores questions and how often they appears like:
+
+{
+  "Some question": 1
+}
+
+When application worker founds question what he can't answer - he adds it or increments count.
+
 ## Parsing steps
 
 ### Jobs List Parser Worker
@@ -195,6 +205,61 @@ REMOTE_PATH=/home/sudar/ry
 Add github githook after push (husky?):
 
 ssh USER_HOST 'cd REMOTE_PATH && npm run deploy'
+
+
+## JOBS.ASHBYHQ.COM applier worker (beta: don't add to pm2 yet, just create npm ashby:apply script)
+
+ASHBY_HEADLESS=true (if not passed like ASHBY_HEADLESS=false)
++/- random page size = view_port
+
+Means:
+- "Option 1 / Option 2" Option 1 or Option 2 or both
+- ["salary", "daily"] - label includes "salary" and "daily" case insensitive
+
+Required means: input is "required" or label plain text ends by "*"
+0. time_start
+1. Gets 1 random 'generated' job with manual: false/null/undefined and domain: jobs.ashbyhq.com
+2. scrolls bottom -> scrolls top -> Clicks "Application" tab
+3. Waits page loading, if no inputs found - wait 5s and click again (once)
+4. Console log all inputs with labels highlighting for required fields
+5. If found "not found" - saves status "expired" and exiting
+6. Checks that we have data to fill all fields, if not - console.error('Additional required fields found'), sets `manual: true`, `additional_questions: ['','']`, updates questions.json and exiting
+7. Fills required visible fields (if not market "(always)" in description) mapped to labels (label lowercase includes field from our list lowercase), waits rand(1,5) sec after every field:
+- Legal Name / Name / Full name (not First name and Last name separately) = `${FIRST_NAME} ${LAST_NAME}`
+- First name / Legal first name = FIRST_NAME
+- Last name / Legal last name = LAST_NAME
+- Prefered name = FIRST_NAME
+- Prefered first name = FIRST_NAME
+- Prefered last name = LAST_NAME
+- "pronouns" = "He/Him"
+- E-mail / Email = email from db
+- Phone (always) = PHONE
+- Resume / CV = emulate drag and drop CV from db
+- GitHub / GitLab = GITHUB_PROFILE
+- LinkedIn (always) = LINKEDIN_PROFILE
+- Cover letter / Additional information = greeting_message + '\n\n' + require('constants/text.constants.js').b2b
+- Location (always): type "Yerevan" and click suggestion or try "Armenia"
+- portfolio = GITHUB_PROFILE
+- ["salary", "daily"] - 300$ if text, 300 if 
+- ["salary", "year", "range"] - salary from db (only digits and "-") or 80000-150000$
+- ["salary", "month", "range"] - 7000-15000$
+- ["salary"] - salary from db or 80000-150000$ / y
+- ["when", "start"] = 0-3 weeks if input, next monday if date
+- ["notice", "period"] = 0-3 weeks
+- ["why", "?"] = why_answer
+- Eligibility/eligible - yes/true
++ check answers.json
+8. finds button with text "Submit Application"
+9. waits 60s - (timestamp-time_start) + rand(0,15)s + fields count * 2s
+10. saves screenshot to ./tmp/before_submit and ./tmp/before_submit.png
+11. Saves rendered html to ./tmp/last.html
+12. clicks "Submit Application"
+13. waits 5 sec
+14. takes screenshot to ./tmp/success + ./tmp/success.png or ./tmp/error + ./tmp/error.png
+15. if got "success" (.ashby-application-form-success-container found) - set status: 'applied', else manual: true
+16. exit
+
+Reset script: `npm run ashby:reset` - connects to db and sets 'manual: false', removes questions.json
 
 ## Acceptance criteria:
 

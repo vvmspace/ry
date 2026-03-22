@@ -1,0 +1,99 @@
+
+> puppeteer-template@1.0.0 ashby:apply
+> node ./src/workers/ashbyApplyWorker.js
+
+[36m[1m🤖  ASHBY APPLY WORKER (beta)[0m
+Selected job: DevOps Engineer @ Swap
+Application URL: https://jobs.ashbyhq.com/swap/4eefc95f-d65a-4a9c-a407-a2a983a30fb4?utm_source=remoteyeah.com&utm_medium=job_board&utm_campaign=job_listing&ref=remoteyeah.com
+
+[1m--- FORM FIELDS ---[0m
+
+Total fields: 0
+
+> puppeteer-template@1.0.0 ashby:apply
+> node ./src/workers/ashbyApplyWorker.js
+
+[36m[1m🤖  ASHBY APPLY WORKER (beta)[0m
+Selected job: Data Scientist II - Computer Vision @ Socure
+Application URL: https://jobs.ashbyhq.com/socure/88234af4-9c21-47b7-9854-6312453f1ba8?utm_source=remoteyeah.com&utm_medium=job_board&utm_campaign=job_listing&ref=remoteyeah.com
+Clicking 'Application' tab...
+
+[1m--- FORM FIELDS ---[0m
+ 1. [90m[optional][0m [file] label="Legal Name" name="" placeholder=""
+ 2. [31m[REQUIRED][0m [text] label="Legal Name" name="_systemfield_name" placeholder="Type here..."
+ 3. [90m[optional][0m [text] label="Do you have a preferred first name?" name="5a508df5-b7c7-455c-9cff-931bb71795cc" placeholder="Type here..."
+ 4. [31m[REQUIRED][0m [tel] label="Phone Number" name="29d77d59-a169-4da9-b2d4-665626df025e" placeholder="1-415-555-1234..."
+ 5. [31m[REQUIRED][0m [email] label="Email" name="_systemfield_email" placeholder="hello@example.com..."
+ 6. [31m[REQUIRED][0m [file] label="Resume/CV" name="_systemfield_resume" placeholder=""
+ 7. [31m[REQUIRED][0m [text] label="LinkedIn URL" name="00a47b79-b766-4dd9-8ebe-ba000be84d4b" placeholder="Type here..."
+ 8. [90m[optional][0m [checkbox] label="Are you eligible to work in the United States indefinitely without any visa sponsorship?" name="49699c7b-0dbd-4ade-ab14-5d99ed0efd55" placeholder=""
+ 9. [90m[optional][0m [text] label="Location" name="" placeholder="Start typing..."
+10. [31m[REQUIRED][0m [text] label="What is your home zip code?" name="6127cfc3-8a92-48c2-b9db-d28ac0c774be" placeholder="Type here..."
+11. [90m[optional][0m [text] label="What are your compensation expectations?" name="ff2a99c2-c4b6-4147-a964-a2278ee37ea0" placeholder="Type here..."
+12. [31m[REQUIRED][0m [textarea] label="Where have you worked on computer vision projects previously?" name="d14ae3c1-1c40-4c64-b19b-90abf8f54e95" placeholder="Type here..."
+13. [90m[optional][0m [checkbox] label="Do you currently reside in any of the following states: DE, HI, IA, KY, MS, NE, NM, SD, VT, WV, WY?" name="56514b31-b5fa-447b-9e5b-099ac536cb5c" placeholder=""
+14. [90m[optional][0m [checkbox] label="Do you live within 60 miles of one of Socure's Product Talent Hubs?" name="26644786-bdaa-49ce-b4ec-811cfb0c27dc" placeholder=""
+15. [90m[optional][0m [radio] label="I consent" name="68073436-a5c1-4beb-b867-958861d13e75_bffc8dcc-6c75-4897-b2f6-a024021c0644" placeholder=""
+16. [90m[optional][0m [radio] label="Male" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_gender" placeholder=""
+17. [90m[optional][0m [radio] label="Female" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_gender" placeholder=""
+18. [90m[optional][0m [radio] label="Decline to self-identify" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_gender" placeholder=""
+19. [90m[optional][0m [radio] label="Hispanic or Latino" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_race" placeholder=""
+20. [90m[optional][0m [radio] label="White (Not Hispanic or Latino)" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_race" placeholder=""
+21. [90m[optional][0m [radio] label="Black or African American (Not Hispanic or Latino)" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_race" placeholder=""
+22. [90m[optional][0m [radio] label="Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino)" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_race" placeholder=""
+23. [90m[optional][0m [radio] label="Asian (Not Hispanic or Latino)" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_race" placeholder=""
+24. [90m[optional][0m [radio] label="American Indian or Alaska Native (Not Hispanic or Latino)" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_race" placeholder=""
+25. [90m[optional][0m [radio] label="Two or More Races (Not Hispanic or Latino)" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_race" placeholder=""
+26. [90m[optional][0m [radio] label="Decline to self-identify" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_race" placeholder=""
+27. [90m[optional][0m [radio] label="I identify as one or more of the classifications of protected veteran listed above" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_veteran_status" placeholder=""
+28. [90m[optional][0m [radio] label="I am not a protected veteran" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_veteran_status" placeholder=""
+29. [90m[optional][0m [radio] label="I decline to self-identify for protected veteran status" name="a86e1c7b-b03b-4831-bba5-25109b57f928__systemfield_eeoc_veteran_status" placeholder=""
+30. [90m[optional][0m [checkbox] label="I agree" name="I agree" placeholder=""
+31. [90m[optional][0m [textarea] label="Legal Name" name="g-recaptcha-response" placeholder=""
+
+Total fields: 31
+
+> puppeteer-template@1.0.0 ashby:apply
+> node ./src/workers/ashbyApplyWorker.js
+
+[36m[1m🤖  ASHBY APPLY WORKER (beta)[0m
+Selected job: Sr. Software Engineer, AI (Founding) @ TurboLaw
+Application URL: https://jobs.ashbyhq.com/turbolaw/41492777-69fa-494b-b728-9d656afee754?utm_source=remoteyeah.com&utm_medium=job_board&utm_campaign=job_listing&ref=remoteyeah.com
+Clicking 'Application' tab...
+
+[1m--- FORM FIELDS ---[0m
+ 1. [90m[optional][0m [file] label="Name" name="" placeholder=""
+ 2. [31m[REQUIRED][0m [text] label="Name" name="_systemfield_name" placeholder="Type here..."
+ 3. [31m[REQUIRED][0m [email] label="Email" name="_systemfield_email" placeholder="hello@example.com..."
+ 4. [31m[REQUIRED][0m [tel] label="What's your phone number?" name="088b19a2-1a8f-4b90-9c10-fd6f4a6d04bc" placeholder="1-415-555-1234..."
+ 5. [31m[REQUIRED][0m [file] label="Resume" name="_systemfield_resume" placeholder=""
+ 6. [31m[REQUIRED][0m [url] label="What's your LinkedIn?" name="d29bf636-931c-414d-9433-2565f1c6cd63" placeholder="https://example.com..."
+ 7. [90m[optional][0m [text] label="Location" name="" placeholder="Start typing..."
+ 8. [90m[optional][0m [url] label="Portfolio link (GitHub, etc.)" name="ab8975c8-78f3-4304-b55a-2d20a6e9e94b" placeholder="https://example.com..."
+ 9. [31m[REQUIRED][0m [textarea] label="What excites you about working for TurboLaw?" name="e6903b9e-0d1c-422d-88ef-c42750f8d542" placeholder="Type here..."
+10. [90m[optional][0m [textarea] label="Name" name="g-recaptcha-response" placeholder=""
+
+Total fields: 10
+ 2. [31m[REQUIRED][0m [text] label="Legal First Name" name="f561c1e9-2a69-4d46-a715-b7621ca9f19c" placeholder="Type here..."
+ 3. [31m[REQUIRED][0m [text] label="Legal Last Name" name="4f41cea9-af21-4ec3-9284-072e4434c4a1" placeholder="Type here..."
+ 4. [31m[REQUIRED][0m [text] label="Preferred First Name" name="_systemfield_name" placeholder="Type here..."
+ 5. [31m[REQUIRED][0m [text] label="Preferred Last Name" name="c1c4608b-fa64-4fcd-b377-c9499aeb624d" placeholder="Type here..."
+ 6. [31m[REQUIRED][0m [email] label="Email" name="_systemfield_email" placeholder="hello@example.com..."
+11. [31m[REQUIRED][0m [text] label="LinkedIn Profile" name="9f211190-3eb9-4b6f-89f9-c927008820c3" placeholder="Type here..."
+20. [31m[REQUIRED][0m [text] label="Please share specific information on how you heard about this role (for example: what job board did you use, where was the job ad posted, etc.)." name="9befba34-ffce-4aaf-b81f-5786a65ad9d5" placeholder="Type here..."
+22. [31m[REQUIRED][0m [textarea] label="Tell us about the most impactful way you've used AI in your work, and a specific moment where it failed you or produced something you had to catch and fix." name="6f01b6c2-1bf1-42f7-b00b-4513ce2ef694" placeholder="Type here..."
+26. [31m[REQUIRED][0m [textarea] label="Tell us about a time you identified a customer problem and shipped something to address it without waiting for a spec or product requirements." name="ff9199c0-90b2-4830-9d19-9f9e7c40b5f6" placeholder="Type here..."
+ 2. [31m[REQUIRED][0m [text] label="Name" name="_systemfield_name" placeholder="Type here..."
+ 3. [31m[REQUIRED][0m [email] label="Email" name="_systemfield_email" placeholder="hello@example.com..."
+ 4. [31m[REQUIRED][0m [file] label="Resume" name="_systemfield_resume" placeholder=""
+ 5. [31m[REQUIRED][0m [text] label="GitHub/GitLab" name="6229cf79-90a0-4a89-9c85-b818ecc0745e" placeholder="Type here..."
+ 2. [31m[REQUIRED][0m [text] label="Name" id="_systemfield_name" name="_systemfield_name"
+ 4. [31m[REQUIRED][0m [email] label="Email" id="_systemfield_email" name="_systemfield_email"
+ 5. [31m[REQUIRED][0m [file] label="Resume" id="_systemfield_resume" name=""
+ 7. [31m[REQUIRED][0m [textarea] label="GitHub profile" id="64981004-8ab9-48ab-9d45-bd91f388bdb3" name="64981004-8ab9-48ab-9d45-bd91f388bdb3"
+ 8. [31m[REQUIRED][0m [textarea] label="Point us to a GitHub project or repo you're proud of" id="6b87fd8b-6e2c-4d21-996d-6aa6e3f7194b" name="6b87fd8b-6e2c-4d21-996d-6aa6e3f7194b"
+ 9. [31m[REQUIRED][0m [textarea] label="Tell us about the fast-paced startup and/or small Eng team you've been part of in detail" id="087ee85d-c425-472f-8698-ccd4912719b9" name="087ee85d-c425-472f-8698-ccd4912719b9"
+10. [31m[REQUIRED][0m [textarea] label="Share a releavnt LLM prompt that is representative of how you work with LLMs to code" id="0cc3ef29-2da0-4e28-b380-fc1101abe4c6" name="0cc3ef29-2da0-4e28-b380-fc1101abe4c6"
+11. [31m[REQUIRED][0m [text] label="How often are you using ruby?" id="3883a733-5f26-437e-b4c3-84e2cb8c869a" name="3883a733-5f26-437e-b4c3-84e2cb8c869a"
+12. [31m[REQUIRED][0m [number] label="How long have you been using ruby?" id="664fb218-17b6-46c5-814d-1c2afd7e8235" name="664fb218-17b6-46c5-814d-1c2afd7e8235"
+13. [31m[REQUIRED][0m [text] label="How often are you using typsecript?" id="b3a32f22-cd56-434d-a327-3f6f20dc35b3" name="b3a32f22-cd56-434d-a327-3f6f20dc35b3"

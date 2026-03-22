@@ -16,6 +16,7 @@ type Job = {
   topTechAndSkills?: string;
   whyAnswer?: string;
   matchRate?: number | null;
+  createdAt?: string | Date;
 };
 
 const config = useRuntimeConfig();
@@ -178,6 +179,13 @@ function getCvFileName(job: Job) {
 
 function formatMatchRate(value?: number | null) {
   return typeof value === "number" && Number.isFinite(value) ? `${value}%` : "";
+}
+
+function formatDate(value?: string | number | Date) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("ru-RU");
 }
 
 function getMatchRateClass(value?: number | null) {
@@ -559,8 +567,9 @@ onUnmounted(() => {
               <div>
                 <span>{{ job.salary || "—" }}</span>
               </div>
-              <div>
+              <div class="domain-value">
                 <span>{{ getTopLevelDomain(job.domain) || "—" }}</span>
+                <small v-if="job.createdAt" class="domain-date text-muted">{{ formatDate(job.createdAt) }}</small>
               </div>
               <div>
                 <a
@@ -727,7 +736,10 @@ onUnmounted(() => {
 
             <div class="row">
               <span class="label">Domain</span>
-              <span>{{ getTopLevelDomain(job.domain) || "—" }}</span>
+              <div class="domain-value">
+                <span>{{ getTopLevelDomain(job.domain) || "—" }}</span>
+                <small v-if="job.createdAt" class="domain-date text-muted">{{ formatDate(job.createdAt) }}</small>
+              </div>
             </div>
 
             <div class="row">
@@ -1095,6 +1107,19 @@ onUnmounted(() => {
 .jobs-row select {
   width: 100%;
   min-width: 0;
+}
+
+.domain-value {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: flex-start;
+}
+
+.domain-date {
+  font-size: 0.72rem;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
 }
 
 .jobs-row .icon-button,

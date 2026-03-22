@@ -45,6 +45,8 @@ const jobPageSchema = new mongoose.Schema(
     skills: [String],
     locations: [String],
     benefits: [String],
+    additional_questions: [String],
+    manual: { type: Boolean, default: false },
   },
   {
     timestamps: true,
