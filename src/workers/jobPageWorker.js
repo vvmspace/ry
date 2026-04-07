@@ -8,6 +8,34 @@ const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
 const { shouldSkip, setLastTs } = require("../libs/state");
 
+const DEFAULT_APPLY_TIMEOUT_MS = 15000;
+const APPLY_NAVIGATION_TIMEOUT_MS = 7000;
+
+function resolveApplyTimeoutMs() {
+    const raw = process.env.JOB_PARSE_APPLY_TIMEOUT_MS;
+    if (!raw) return DEFAULT_APPLY_TIMEOUT_MS;
+
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        console.warn(
+            `[apply-flow] Invalid JOB_PARSE_APPLY_TIMEOUT_MS="${raw}", fallback=${DEFAULT_APPLY_TIMEOUT_MS}ms`
+        );
+        return DEFAULT_APPLY_TIMEOUT_MS;
+    }
+
+    return parsed;
+}
+
+function withTimeout(promise, timeoutMs, label) {
+    let timer;
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`[apply-flow][timeout] ${label} exceeded ${timeoutMs}ms`)), timeoutMs);
+        }),
+    ]).finally(() => clearTimeout(timer));
+}
+
 function extractJobDataFromHtml(html) {
     const $ = cheerio.load(html);
 
@@ -153,6 +181,73 @@ function extractJobDataFromHtml(html) {
     return data;
 }
 
+async function resolveApplicationUrlFromApply({ page, browser, timeoutMs }) {
+    const startMs = Date.now();
+    console.log(`[apply-flow] start | timeout=${timeoutMs}ms`);
+
+    const initialPageUrl = page.url();
+    const applyButton = await page.$('form[action*="/apply"] button');
+    if (!applyButton) {
+        console.warn("[apply-flow] apply button not found");
+        return "";
+    }
+
+    console.log("[apply-flow] apply button found; clicking...");
+
+    let applicationUrl = "";
+    const sourceTarget = page.target();
+    const targetCreatedPromise = browser.waitForTarget(
+        (target) => target.type() === "page" && target !== sourceTarget && target.opener() === sourceTarget,
+        { timeout: timeoutMs }
+    );
+
+    await applyButton.click();
+    console.log("[apply-flow] click sent");
+
+    let target = null;
+    try {
+        target = await withTimeout(targetCreatedPromise, timeoutMs, "waiting for apply target");
+        console.log(`[apply-flow] target created in ${Date.now() - startMs}ms`);
+    } catch (err) {
+        console.warn(`[apply-flow] target not created: ${err.message}`);
+    }
+
+    if (target) {
+        const appPage = await target.page();
+        if (!appPage) {
+            console.warn("[apply-flow] target has no page instance");
+        } else {
+            try {
+                await withTimeout(
+                    appPage.waitForNavigation({ waitUntil: "networkidle2", timeout: APPLY_NAVIGATION_TIMEOUT_MS }).catch(() => { }),
+                    timeoutMs,
+                    "waiting app page navigation"
+                );
+                applicationUrl = appPage.url();
+                console.log(`[apply-flow] captured from new tab: ${applicationUrl}`);
+            } finally {
+                await appPage.close().catch(() => { });
+            }
+        }
+    }
+
+    if (!applicationUrl) {
+        await page.waitForTimeout(1000);
+        const currentUrl = page.url();
+        if (currentUrl && currentUrl !== initialPageUrl) {
+            applicationUrl = currentUrl;
+            console.log(`[apply-flow] fallback to current page url: ${applicationUrl}`);
+        } else {
+            console.warn(
+                `[apply-flow] no application URL detected; initial=${initialPageUrl} current=${currentUrl}`
+            );
+        }
+    }
+
+    console.log(`[apply-flow] done in ${Date.now() - startMs}ms`);
+    return applicationUrl;
+}
+
 async function runJobPageWorker() {
     console.log('\x1b[33m\x1b[1m📄  JOB PAGE WORKER\x1b[0m');
     if (shouldSkip('SAVED_SUCCESS_INTERVAL', 'SAVED_ERROR_INTERVAL', 'saved')) {
@@ -189,9 +284,6 @@ async function runJobPageWorker() {
             if (type === "error") console.error("[browser console][error]", text);
         });
 
-        // Handle new target created (for target="_blank" apply link)
-        const newPagePromise = new Promise(resolve => browser.once('targetcreated', resolve));
-
         await page.goto(job.url, { waitUntil: "networkidle2" });
         const html = await page.content();
 
@@ -200,27 +292,16 @@ async function runJobPageWorker() {
         console.log("Extracted Data:", jobData);
 
         // Apply button
-        const applyButton = await page.$('form[action*="/apply"] button');
         let applicationUrl = "";
-
-        if (applyButton) {
-            console.log("Found apply button, clicking now...");
-            await applyButton.click();
-
-            const target = await newPagePromise;
-            const appPage = await target.page();
-
-            if (appPage) {
-                // Wait for page to navigate / settle
-                await appPage.waitForNavigation({ waitUntil: "networkidle2" }).catch(() => { });
-                applicationUrl = appPage.url();
-                console.log(`Application URL: ${applicationUrl}`);
-                await appPage.close();
-            } else {
-                console.error("Could not get page from target");
-            }
-        } else {
-            console.log("Could not find apply button/form");
+        const applyTimeoutMs = resolveApplyTimeoutMs();
+        console.log(`[apply-flow] configured timeout=${applyTimeoutMs}ms`);
+        applicationUrl = await resolveApplicationUrlFromApply({
+            page,
+            browser,
+            timeoutMs: applyTimeoutMs,
+        });
+        if (applicationUrl) {
+            console.log(`Application URL: ${applicationUrl}`);
         }
 
         // Save job
@@ -272,5 +353,7 @@ if (require.main === module) {
 
 module.exports = {
     extractJobDataFromHtml,
+    resolveApplyTimeoutMs,
+    resolveApplicationUrlFromApply,
     runJobPageWorker,
 };

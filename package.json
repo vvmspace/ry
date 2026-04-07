@@ -11,6 +11,7 @@
     "show": "node ./src/show.js",
     "jobs:list": "node ./src/workers/jobsListWorker.js",
     "jobs:parse": "node ./src/workers/jobPageWorker.js",
+    "links:fix": "node ./src/workers/linksFixerWorker.js",
     "cv:generate": "node ./src/workers/cvGenerationWorker.js",
     "ashby:apply": "node ./src/workers/ashbyApplyWorker.js",
     "ashby:reset": "node ./src/workers/ashbyResetWorker.js",

@@ -21,6 +21,8 @@ npm run start       # builds frontend and starts API
 | Variable | Description |
 |---|---|
 | `MONGODB_CONNECTION_STRING` | MongoDB URI |
+| `MONGODB_CONNECTION_STRING_DIRECT` | Optional non-SRV MongoDB URI fallback (used when `mongodb+srv` fails on DNS SRV) |
+| `MONGODB_DNS_SERVERS` | Optional DNS servers (comma-separated), e.g. `8.8.8.8,1.1.1.1` |
 | `MONGODB_DATABASE` | Database name (default: `remoteyeah`) |
 | `REMOTEYEAH_SEARCH_URLS` | Comma-separated list URLs to scrape |
 | `STOP_WORDS` | Comma-separated words to filter out job URLs |
