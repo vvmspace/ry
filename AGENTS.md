@@ -86,6 +86,7 @@ Optional:
   Benefits - benefits ['Medical benefits', 'Relocation', ...]
 
 Clicks apply -> gets opened (after redirect ...) link
+Checks for expriration (same method as in expiration worker), if expired - save with status expired and exit.
 Gets domain as additional field.
 Saves job to db with status `saved`.
 
@@ -160,6 +161,14 @@ order by count of filters then by updatedAt desc
 7. saves with status `generated`
 8. in case of success - saves current datetime to state.json: state.last.success.generated, in case of error to state.last.error.generated
 
+## Expiration worker
+
+1. Gets one not `expired`/`applied`/`error` job from DB with updatedAt asc
+2. Follows link to application page
+3. Waits for page loading
+3. If response.status === 404 or content contains 'not found'/'no longer available'/'This job posting is closed and the position is probably filled.' case insensitive or redirects to "*?not_found=true" - saves status `expired`
+4. Updates updatedAt
+
 ## API
 
 GET /api/v1/jobs
@@ -174,6 +183,10 @@ with optional filters:
 - query= - desciption or title should include
 - exclude= - desciption and title should not include
 - domain= - domain should include
+
+optional query params:
+- limit=100
+- skip=0
 
 PATCH /api/jobs/:_id
 

@@ -19,6 +19,16 @@ type Job = {
   createdAt?: string | Date;
 };
 
+type JobsResponse = {
+  items: Job[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasPrevPage: boolean;
+  hasNextPage: boolean;
+};
+
 const config = useRuntimeConfig();
 const apiBase = ref(
   typeof localStorage !== "undefined"
@@ -36,10 +46,22 @@ const loading = ref(true);
 const error = ref("");
 const statusFilter = ref<JobStatus | "">("");
 const refreshInterval = ref("0");
+const page = ref(1);
+const limit = ref(25);
 const domainFilter = ref("");
 const companyFilter = ref("");
 const titleFilter = ref("");
 const everywhereFilter = ref("");
+const pageSizeOptions = [10, 25, 50, 100];
+const pagination = ref<JobsResponse>({
+  items: [],
+  page: 1,
+  limit: 25,
+  total: 0,
+  totalPages: 0,
+  hasPrevPage: false,
+  hasNextPage: false,
+});
 
 const liveStats = ref<Partial<Record<JobStatus, number>>>({});
 let statsSource: EventSource | null = null;
@@ -76,7 +98,17 @@ const statusCounts = computed(() => {
   return counts;
 });
 
-const totalJobs = computed(() => jobs.value.length);
+const totalJobs = computed(() => pagination.value.total);
+const currentPage = computed(() => pagination.value.page);
+const totalPages = computed(() => pagination.value.totalPages);
+const visibleFrom = computed(() => {
+  if (!jobs.value.length) return 0;
+  return (currentPage.value - 1) * pagination.value.limit + 1;
+});
+const visibleTo = computed(() => {
+  if (!jobs.value.length) return 0;
+  return visibleFrom.value + jobs.value.length - 1;
+});
 
 function normalizeFilterValue(value: string) {
   const normalized = value.trim().toLowerCase();
@@ -206,6 +238,8 @@ async function fetchJobs() {
   error.value = "";
   const params = new URLSearchParams();
   if (statusFilter.value) params.set("status", statusFilter.value);
+  params.set("page", String(page.value));
+  params.set("limit", String(limit.value));
 
   const base = apiBase.value.replace(/\/$/, "");
   const url = `${base}/api/v1/jobs${params.toString() ? `?${params.toString()}` : ""}`;
@@ -213,10 +247,46 @@ async function fetchJobs() {
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    jobs.value = await res.json();
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      jobs.value = data;
+      pagination.value = {
+        items: data,
+        page: 1,
+        limit: data.length || limit.value,
+        total: data.length,
+        totalPages: data.length ? 1 : 0,
+        hasPrevPage: false,
+        hasNextPage: false,
+      };
+      page.value = 1;
+    } else {
+      const paged = data as JobsResponse;
+      jobs.value = Array.isArray(paged.items) ? paged.items : [];
+      pagination.value = {
+        items: jobs.value,
+        page: paged.page || page.value,
+        limit: paged.limit || limit.value,
+        total: paged.total || 0,
+        totalPages: paged.totalPages || 0,
+        hasPrevPage: Boolean(paged.hasPrevPage),
+        hasNextPage: Boolean(paged.hasNextPage),
+      };
+      page.value = pagination.value.page;
+      limit.value = pagination.value.limit;
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Failed to load jobs";
     jobs.value = [];
+    pagination.value = {
+      items: [],
+      page: 1,
+      limit: limit.value,
+      total: 0,
+      totalPages: 0,
+      hasPrevPage: false,
+      hasNextPage: false,
+    };
   } finally {
     loading.value = false;
   }
@@ -225,6 +295,14 @@ async function fetchJobs() {
 function refreshJobs() {
   loading.value = true;
   void fetchJobs();
+}
+
+function goToPage(nextPage: number) {
+  const maxPage = Math.max(1, pagination.value.totalPages || 1);
+  const safePage = Math.min(Math.max(1, nextPage), maxPage);
+  if (safePage === page.value) return;
+  page.value = safePage;
+  refreshJobs();
 }
 
 async function updateStatus(id: string, status: string) {
@@ -341,6 +419,12 @@ watch(refreshInterval, (val) => {
 });
 
 watch(statusFilter, () => {
+  page.value = 1;
+  void fetchJobs();
+});
+
+watch(limit, () => {
+  page.value = 1;
   void fetchJobs();
 });
 
@@ -468,6 +552,14 @@ onUnmounted(() => {
               </option>
             </select>
           </label>
+          <label>
+            Per page
+            <select v-model.number="limit">
+              <option v-for="size in pageSizeOptions" :key="size" :value="size">
+                {{ size }}
+              </option>
+            </select>
+          </label>
         </div>
       </section>
 
@@ -529,6 +621,19 @@ onUnmounted(() => {
       <p v-else-if="loading" class="loading">Loading…</p>
 
       <template v-else>
+        <section class="pagination-bar" aria-label="Pagination controls">
+          <p class="pagination-meta">
+            {{ visibleFrom }}-{{ visibleTo }} of {{ totalJobs }}
+          </p>
+          <div class="pagination-buttons">
+            <button type="button" class="pagination-btn" :disabled="!pagination.hasPrevPage" @click="goToPage(1)">First</button>
+            <button type="button" class="pagination-btn" :disabled="!pagination.hasPrevPage" @click="goToPage(currentPage - 1)">Prev</button>
+            <span class="pagination-page">Page {{ currentPage }} / {{ totalPages || 1 }}</span>
+            <button type="button" class="pagination-btn" :disabled="!pagination.hasNextPage" @click="goToPage(currentPage + 1)">Next</button>
+            <button type="button" class="pagination-btn" :disabled="!pagination.hasNextPage" @click="goToPage(totalPages || 1)">Last</button>
+          </div>
+        </section>
+
         <div class="table-wrap">
           <div class="jobs-table">
             <div class="jobs-head">
@@ -1039,6 +1144,39 @@ onUnmounted(() => {
   overflow-x: auto;
 }
 
+.pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pagination-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.pagination-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-btn {
+  padding: 0.5rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.pagination-page {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
 .jobs-table {
   display: grid;
   gap: 0.75rem;
@@ -1325,4 +1463,11 @@ onUnmounted(() => {
 .stats-badge--applied .stats-badge-count { background: rgba(61, 217, 180, 0.15); color: #3dd9b4; }
 .stats-badge--cancelled .stats-badge-count { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
 .stats-badge--error .stats-badge-count { background: rgba(248, 113, 113, 0.15); color: #fca5a5; }
+
+@media (max-width: 767px) {
+  .pagination-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
 </style>

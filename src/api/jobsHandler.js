@@ -45,9 +45,18 @@ function buildJobsFilter(queryParams) {
   return conditions.length ? { $and: conditions } : {};
 }
 
+function parsePositiveInt(value, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const n = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(n) || Number.isNaN(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
 async function listJobs(queryParams) {
   const filter = buildJobsFilter(queryParams);
-  return JobPage.aggregate([
+  const page = parsePositiveInt(queryParams.page, 1, { min: 1, max: 100000 });
+  const limit = parsePositiveInt(queryParams.limit, 25, { min: 1, max: 100 });
+  const skip = (page - 1) * limit;
+  const [result] = await JobPage.aggregate([
     { $match: filter },
     {
       $addFields: {
@@ -67,12 +76,39 @@ async function listJobs(queryParams) {
     },
     { $sort: { sortStatusOrder: 1, sortMatchRate: -1, updatedAt: -1 } },
     {
+      $facet: {
+        items: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              sortStatusOrder: 0,
+              sortMatchRate: 0,
+            },
+          },
+        ],
+        total: [{ $count: "count" }],
+      },
+    },
+    {
       $project: {
-        sortStatusOrder: 0,
-        sortMatchRate: 0,
+        items: 1,
+        total: { $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0] },
       },
     },
   ]);
+  const total = result?.total || 0;
+  const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+
+  return {
+    items: result?.items || [],
+    page,
+    limit,
+    total,
+    totalPages,
+    hasPrevPage: page > 1,
+    hasNextPage: page < totalPages,
+  };
 }
 
 const ALLOWED_STATUSES = ["pending", "saved", "generated", "started", "applied", "cancelled", "error", "expired"];
@@ -104,6 +140,7 @@ module.exports = {
   listJobs,
   updateJobById,
   getJobById,
+  parsePositiveInt,
   ALLOWED_STATUSES,
   STATUS_SORT_ORDER,
 };

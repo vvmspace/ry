@@ -5,6 +5,7 @@ const {
   buildJobsFilter,
   escapeRegex,
   listJobs,
+  parsePositiveInt,
   updateJobById,
   STATUS_SORT_ORDER,
 } = require("./jobsHandler");
@@ -55,18 +56,34 @@ test("buildJobsFilter combines multiple", () => {
   assert.ok(filter.$and.length >= 3);
 });
 
-test("listJobs builds aggregation with status, matchRate and updatedAt sort", async () => {
+test("parsePositiveInt returns fallback for invalid values and clamps range", () => {
+  assert.equal(parsePositiveInt(undefined, 5), 5);
+  assert.equal(parsePositiveInt("abc", 5), 5);
+  assert.equal(parsePositiveInt("3", 5), 3);
+  assert.equal(parsePositiveInt("0", 5, { min: 1, max: 10 }), 1);
+  assert.equal(parsePositiveInt("99", 5, { min: 1, max: 10 }), 10);
+});
+
+test("listJobs builds aggregation with sort and pagination", async () => {
   const originalAggregate = JobPage.aggregate;
   let capturedPipeline = null;
 
   JobPage.aggregate = async (pipeline) => {
     capturedPipeline = pipeline;
-    return [{ _id: "job-1", status: "generated", matchRate: 92 }];
+    return [{ items: [{ _id: "job-1", status: "generated", matchRate: 92 }], total: 1 }];
   };
 
   try {
-    const jobs = await listJobs({ status: "generated", domain: "example.com" });
-    assert.deepEqual(jobs, [{ _id: "job-1", status: "generated", matchRate: 92 }]);
+    const jobs = await listJobs({ status: "generated", domain: "example.com", page: "2", limit: "10" });
+    assert.deepEqual(jobs, {
+      items: [{ _id: "job-1", status: "generated", matchRate: 92 }],
+      page: 2,
+      limit: 10,
+      total: 1,
+      totalPages: 1,
+      hasPrevPage: true,
+      hasNextPage: false,
+    });
     assert.ok(Array.isArray(capturedPipeline));
     assert.deepEqual(capturedPipeline[0], {
       $match: buildJobsFilter({ status: "generated", domain: "example.com" }),
@@ -89,6 +106,21 @@ test("listJobs builds aggregation with status, matchRate and updatedAt sort", as
     });
     assert.deepEqual(capturedPipeline[2], {
       $sort: { sortStatusOrder: 1, sortMatchRate: -1, updatedAt: -1 },
+    });
+    assert.deepEqual(capturedPipeline[3], {
+      $facet: {
+        items: [
+          { $skip: 10 },
+          { $limit: 10 },
+          {
+            $project: {
+              sortStatusOrder: 0,
+              sortMatchRate: 0,
+            },
+          },
+        ],
+        total: [{ $count: "count" }],
+      },
     });
   } finally {
     JobPage.aggregate = originalAggregate;
