@@ -7,9 +7,43 @@ const mongoose = require("mongoose");
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
 const { shouldSkip, setLastTs } = require("../libs/state");
+const { checkUrlForExpiration, getCheckUrl } = require("./expirationWorker");
 
 const DEFAULT_APPLY_TIMEOUT_MS = 15000;
-const APPLY_NAVIGATION_TIMEOUT_MS = 7000;
+const APPLY_REDIRECT_TIMEOUT_MS = 3000;
+const JOB_PAGE_READY_TIMEOUT_MS = 10000;
+
+const TIMER = {
+    WORKER: "[jobs:parse] worker total",
+    DB_CONNECT: "[jobs:parse] db connect",
+    BROWSER_LAUNCH: "[jobs:parse] browser launch",
+    FIND_PENDING: "[jobs:parse] find pending job",
+    PAGE_GOTO: "[jobs:parse] page goto",
+    PAGE_CONTENT: "[jobs:parse] page content",
+    DATA_PARSE: "[jobs:parse] parse html",
+    APPLY_FLOW: "[jobs:parse] apply flow",
+    DB_SAVE: "[jobs:parse] save job",
+    BROWSER_CLOSE: "[jobs:parse] browser close",
+    DB_DISCONNECT: "[jobs:parse] db disconnect",
+};
+
+function isMeaningfulUrl(url) {
+    return Boolean(url && url !== "about:blank");
+}
+
+async function waitForJobPageReady(page) {
+    await page
+        .waitForFunction(
+            () =>
+                Boolean(
+                    document.querySelector("h1") ||
+                    document.querySelector('form[action*="/apply"] button') ||
+                    document.querySelector('script[type="application/ld+json"]')
+                ),
+            { timeout: JOB_PAGE_READY_TIMEOUT_MS }
+        )
+        .catch(() => { });
+}
 
 function resolveApplyTimeoutMs() {
     const raw = process.env.JOB_PARSE_APPLY_TIMEOUT_MS;
@@ -21,6 +55,21 @@ function resolveApplyTimeoutMs() {
             `[apply-flow] Invalid JOB_PARSE_APPLY_TIMEOUT_MS="${raw}", fallback=${DEFAULT_APPLY_TIMEOUT_MS}ms`
         );
         return DEFAULT_APPLY_TIMEOUT_MS;
+    }
+
+    return parsed;
+}
+
+function resolveParseCountFromArgv() {
+    const defaultCount = 1;
+    const arg = process.argv.find((item) => typeof item === "string" && item.startsWith("--count="));
+    if (!arg) return defaultCount;
+
+    const raw = arg.slice("--count=".length);
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        console.warn(`[jobs:parse] Invalid --count="${raw}", fallback=${defaultCount}`);
+        return defaultCount;
     }
 
     return parsed;
@@ -218,13 +267,21 @@ async function resolveApplicationUrlFromApply({ page, browser, timeoutMs }) {
             console.warn("[apply-flow] target has no page instance");
         } else {
             try {
-                await withTimeout(
-                    appPage.waitForNavigation({ waitUntil: "networkidle2", timeout: APPLY_NAVIGATION_TIMEOUT_MS }).catch(() => { }),
-                    timeoutMs,
-                    "waiting app page navigation"
-                );
                 applicationUrl = appPage.url();
-                console.log(`[apply-flow] captured from new tab: ${applicationUrl}`);
+                if (!isMeaningfulUrl(applicationUrl)) {
+                    await Promise.race([
+                        appPage.waitForNavigation({ waitUntil: "domcontentloaded", timeout: APPLY_REDIRECT_TIMEOUT_MS }).catch(() => { }),
+                        appPage.waitForFunction(
+                            () => window.location.href && window.location.href !== "about:blank",
+                            { timeout: APPLY_REDIRECT_TIMEOUT_MS }
+                        ).catch(() => { }),
+                    ]);
+                    applicationUrl = appPage.url();
+                }
+
+                if (isMeaningfulUrl(applicationUrl)) {
+                    console.log(`[apply-flow] captured from new tab: ${applicationUrl}`);
+                }
             } finally {
                 await appPage.close().catch(() => { });
             }
@@ -232,7 +289,6 @@ async function resolveApplicationUrlFromApply({ page, browser, timeoutMs }) {
     }
 
     if (!applicationUrl) {
-        await page.waitForTimeout(1000);
         const currentUrl = page.url();
         if (currentUrl && currentUrl !== initialPageUrl) {
             applicationUrl = currentUrl;
@@ -250,12 +306,17 @@ async function resolveApplicationUrlFromApply({ page, browser, timeoutMs }) {
 
 async function runJobPageWorker() {
     console.log('\x1b[33m\x1b[1m📄  JOB PAGE WORKER\x1b[0m');
+    console.time(TIMER.WORKER);
     if (shouldSkip('SAVED_SUCCESS_INTERVAL', 'SAVED_ERROR_INTERVAL', 'saved')) {
+        console.timeEnd(TIMER.WORKER);
         process.exit(0);
     }
 
+    console.time(TIMER.DB_CONNECT);
     await connectMongo();
+    console.timeEnd(TIMER.DB_CONNECT);
 
+    console.time(TIMER.BROWSER_LAUNCH);
     const browser = await puppeteer.launch({
         userDataDir: process.env.USER_DIR || "userdir",
         headless: true, // we can run headless
@@ -265,17 +326,11 @@ async function runJobPageWorker() {
         },
         args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
+    console.timeEnd(TIMER.BROWSER_LAUNCH);
 
     try {
-        // Find a pending job
-        const job = await JobPage.findOne({ status: "pending" });
-        if (!job) {
-            console.log("No pending jobs found. Exiting.");
-            setLastTs('error', 'saved');
-            return;
-        }
-
-        console.log(`Processing job: ${job.url}`);
+        const parseCount = resolveParseCountFromArgv();
+        console.log(`[jobs:parse] count=${parseCount}`);
 
         const page = (await browser.pages())[0] || (await browser.newPage());
         page.on("console", (msg) => {
@@ -284,63 +339,118 @@ async function runJobPageWorker() {
             if (type === "error") console.error("[browser console][error]", text);
         });
 
-        await page.goto(job.url, { waitUntil: "networkidle2" });
-        const html = await page.content();
-
-        // Parse the data
-        const jobData = extractJobDataFromHtml(html);
-        console.log("Extracted Data:", jobData);
-
-        // Apply button
-        let applicationUrl = "";
+        let processed = 0;
         const applyTimeoutMs = resolveApplyTimeoutMs();
         console.log(`[apply-flow] configured timeout=${applyTimeoutMs}ms`);
-        applicationUrl = await resolveApplicationUrlFromApply({
-            page,
-            browser,
-            timeoutMs: applyTimeoutMs,
-        });
-        if (applicationUrl) {
-            console.log(`Application URL: ${applicationUrl}`);
-        }
 
-        // Save job
-        job.title = jobData.title;
-        job.companyName = jobData.companyName;
-        job.salary = jobData.salary;
-        job.description = jobData.description;
-        job.applicationUrl = applicationUrl;
-
-        // Optional fields
-        if (jobData.sourceJobTitle) job.sourceJobTitle = jobData.sourceJobTitle;
-        if (jobData.sourceJobType) job.sourceJobType = jobData.sourceJobType;
-        if (jobData.sourceExperienceLevel) job.sourceExperienceLevel = jobData.sourceExperienceLevel;
-        if (typeof jobData.degreeRequired === "boolean") job.degreeRequired = jobData.degreeRequired;
-        if (jobData.skills?.length) job.skills = jobData.skills;
-        if (jobData.locations?.length) job.locations = jobData.locations;
-        if (jobData.benefits?.length) job.benefits = jobData.benefits;
-
-        if (applicationUrl) {
-            try {
-                const urlObj = new URL(applicationUrl);
-                job.domain = urlObj.hostname;
-            } catch (e) {
-                console.error("Failed to parse domain from url:", applicationUrl);
+        for (let i = 0; i < parseCount; i++) {
+            // Find a pending job
+            console.time(TIMER.FIND_PENDING);
+            const job = await JobPage.findOne({ status: "pending" });
+            console.timeEnd(TIMER.FIND_PENDING);
+            if (!job) {
+                console.log("No pending jobs found. Exiting.");
+                break;
             }
+
+            console.log(`Processing job: ${job.url}`);
+
+            const expirationCheckUrl = getCheckUrl(job);
+            if (expirationCheckUrl) {
+                const { isExpired, statusCode, finalUrl, fetchError } = await checkUrlForExpiration(expirationCheckUrl);
+                if (fetchError) {
+                    console.log(`[jobs:parse] expiration pre-check skipped (${fetchError}, URL: ${finalUrl || expirationCheckUrl})`);
+                } else if (isExpired) {
+                    job.status = "expired";
+                    console.time(TIMER.DB_SAVE);
+                    await job.save();
+                    console.timeEnd(TIMER.DB_SAVE);
+                    console.log(`[jobs:parse] marked as expired before parse (HTTP ${statusCode}, final URL: ${finalUrl})`);
+                    processed++;
+                    continue;
+                }
+            }
+
+            console.time(TIMER.PAGE_GOTO);
+            await page.goto(job.url, { waitUntil: "domcontentloaded" });
+            await waitForJobPageReady(page);
+            console.timeEnd(TIMER.PAGE_GOTO);
+
+            console.time(TIMER.PAGE_CONTENT);
+            const html = await page.content();
+            console.timeEnd(TIMER.PAGE_CONTENT);
+
+            // Parse the data
+            console.time(TIMER.DATA_PARSE);
+            const jobData = extractJobDataFromHtml(html);
+            console.timeEnd(TIMER.DATA_PARSE);
+            console.log("Extracted Data:", jobData);
+
+            // Apply button
+            let applicationUrl = "";
+            console.time(TIMER.APPLY_FLOW);
+            applicationUrl = await resolveApplicationUrlFromApply({
+                page,
+                browser,
+                timeoutMs: applyTimeoutMs,
+            });
+            console.timeEnd(TIMER.APPLY_FLOW);
+            if (applicationUrl) {
+                console.log(`Application URL: ${applicationUrl}`);
+            }
+
+            // Save job
+            job.title = jobData.title;
+            job.companyName = jobData.companyName;
+            job.salary = jobData.salary;
+            job.description = jobData.description;
+            job.applicationUrl = applicationUrl;
+
+            // Optional fields
+            if (jobData.sourceJobTitle) job.sourceJobTitle = jobData.sourceJobTitle;
+            if (jobData.sourceJobType) job.sourceJobType = jobData.sourceJobType;
+            if (jobData.sourceExperienceLevel) job.sourceExperienceLevel = jobData.sourceExperienceLevel;
+            if (typeof jobData.degreeRequired === "boolean") job.degreeRequired = jobData.degreeRequired;
+            if (jobData.skills?.length) job.skills = jobData.skills;
+            if (jobData.locations?.length) job.locations = jobData.locations;
+            if (jobData.benefits?.length) job.benefits = jobData.benefits;
+
+            if (applicationUrl) {
+                try {
+                    const urlObj = new URL(applicationUrl);
+                    job.domain = urlObj.hostname;
+                } catch (e) {
+                    console.error("Failed to parse domain from url:", applicationUrl);
+                }
+            }
+
+            job.status = "saved";
+
+            console.time(TIMER.DB_SAVE);
+            await job.save();
+            console.timeEnd(TIMER.DB_SAVE);
+            console.log(`Saved job data for ${job.url}`);
+            processed++;
         }
 
-        job.status = "saved";
-
-        await job.save();
-        console.log(`Saved job data for ${job.url}`);
-        setLastTs('success', 'saved');
+        if (processed > 0) {
+            setLastTs('success', 'saved');
+        } else {
+            setLastTs('error', 'saved');
+        }
 
     } catch (err) {
         console.error("Error processing job:", err);
         setLastTs('error', 'saved');
     } finally {
+        console.time(TIMER.BROWSER_CLOSE);
         await browser.close();
+        console.timeEnd(TIMER.BROWSER_CLOSE);
+
+        console.time(TIMER.DB_DISCONNECT);
         await mongoose.disconnect();
+        console.timeEnd(TIMER.DB_DISCONNECT);
+        console.timeEnd(TIMER.WORKER);
     }
 }
 
@@ -354,6 +464,7 @@ if (require.main === module) {
 module.exports = {
     extractJobDataFromHtml,
     resolveApplyTimeoutMs,
+    resolveParseCountFromArgv,
     resolveApplicationUrlFromApply,
     runJobPageWorker,
 };

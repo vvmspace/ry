@@ -16,7 +16,11 @@ function isExpirationSignal(httpStatus, bodyText) {
     return false;
   }
 
-  return /\bnot\s+found\b/i.test(bodyText) || /\bno\s+longer\s+available\b/i.test(bodyText);
+  return (
+    /\bnot\s+found\b/i.test(bodyText) ||
+    /\bno\s+longer\s+available\b/i.test(bodyText) ||
+    /this\s+job\s+posting\s+is\s+closed\s+and\s+the\s+position\s+is\s+probably\s+filled\./i.test(bodyText)
+  );
 }
 
 function isNotFoundRedirect(urlValue) {
@@ -33,20 +37,64 @@ function isNotFoundRedirect(urlValue) {
   }
 }
 
+function isHttpUrl(urlValue) {
+  if (!urlValue || typeof urlValue !== "string") {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(urlValue.trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function getCheckUrl(job) {
-  return (job?.applicationUrl || job?.url || "").trim();
+  const applicationUrl = (job?.applicationUrl || "").trim();
+  const fallbackUrl = (job?.url || "").trim();
+
+  if (isHttpUrl(applicationUrl)) {
+    return applicationUrl;
+  }
+
+  if (isHttpUrl(fallbackUrl)) {
+    return fallbackUrl;
+  }
+
+  return "";
 }
 
 async function checkUrlForExpiration(url) {
-  const response = await fetch(url, {
-    redirect: "follow",
-  });
+  if (!isHttpUrl(url)) {
+    return {
+      isExpired: false,
+      statusCode: 0,
+      finalUrl: url || "",
+      fetchError: "invalid_url_scheme",
+    };
+  }
+
+  let response;
+  try {
+    response = await fetch(url, {
+      redirect: "follow",
+    });
+  } catch (error) {
+    return {
+      isExpired: false,
+      statusCode: 0,
+      finalUrl: url,
+      fetchError: error?.message || "fetch_failed",
+    };
+  }
 
   const body = await response.text().catch(() => "");
   return {
     isExpired: isExpirationSignal(response.status, body) || isNotFoundRedirect(response.url),
     statusCode: response.status,
     finalUrl: response.url,
+    fetchError: null,
   };
 }
 
@@ -73,9 +121,11 @@ async function runExpirationWorker() {
     }
 
     console.log(`Checking job ${job._id} -> ${checkUrl}`);
-    const { isExpired, statusCode, finalUrl } = await checkUrlForExpiration(checkUrl);
+    const { isExpired, statusCode, finalUrl, fetchError } = await checkUrlForExpiration(checkUrl);
 
-    if (isExpired) {
+    if (fetchError) {
+      console.log(`Could not verify expiration (${fetchError}, URL: ${finalUrl || checkUrl})`);
+    } else if (isExpired) {
       job.status = "expired";
       console.log(`Marked as expired (HTTP ${statusCode}, final URL: ${finalUrl})`);
     } else {
@@ -103,6 +153,7 @@ module.exports = {
   EXCLUDED_STATUSES,
   isExpirationSignal,
   isNotFoundRedirect,
+  isHttpUrl,
   getCheckUrl,
   checkUrlForExpiration,
   runExpirationWorker,

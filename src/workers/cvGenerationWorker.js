@@ -23,7 +23,8 @@ function loadPriority(section) {
 /**
  * Build aggregate pipeline that picks 1 `saved` job ordered by:
  * 1. count of priority filter matches (desc)
- * 2. updatedAt (desc)
+ * 2. matchRate (desc)
+ * 3. createdAt (desc)
  */
 async function findNextSavedJob(priority) {
   // Build $addFields expressions: one $cond per filter string per field
@@ -46,7 +47,7 @@ async function findNextSavedJob(priority) {
 
   if (!scoreExprs.length) {
     // No priority rules — simple findOne
-    return JobPage.findOne({ status: 'saved' }).sort({ updatedAt: -1 });
+    return JobPage.findOne({ status: 'saved' }).sort({ matchRate: -1, createdAt: -1 });
   }
 
   const priorityScore = scoreExprs.length === 1
@@ -56,14 +57,14 @@ async function findNextSavedJob(priority) {
   const [doc] = await JobPage.aggregate([
     { $match: { status: 'saved' } },
     { $addFields: { _priorityScore: priorityScore } },
-    { $sort: { _priorityScore: -1, updatedAt: -1 } },
+    { $sort: { _priorityScore: -1, matchRate: -1, createdAt: -1 } },
     { $limit: 1 },
   ]);
 
   return doc ? JobPage.findById(doc._id) : null;
 }
 
-const API_BASE = "https://tma.kingofthehill.pro";
+const API_BASE = process.env.GENERATE_CV_API_BASE || "https://tma.kingofthehill.pro";
 const GENERATE_CV_PATH = "/api/v1/generate_cv";
 
 function buildVacancyText(job) {

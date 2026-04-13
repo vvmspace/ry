@@ -13,6 +13,7 @@
     "jobs:parse": "node ./src/workers/jobPageWorker.js",
     "jobs:expire": "node ./src/workers/expirationWorker.js",
     "links:fix": "node ./src/workers/linksFixerWorker.js",
+    "jobs:rate": "node ./src/workers/matchRateWorker.js",
     "cv:generate": "node ./src/workers/cvGenerationWorker.js",
     "ashby:apply": "node ./src/workers/ashbyApplyWorker.js",
     "ashby:reset": "node ./src/workers/ashbyResetWorker.js",

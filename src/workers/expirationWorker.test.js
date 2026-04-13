@@ -4,7 +4,9 @@ const assert = require("node:assert/strict");
 const {
   isExpirationSignal,
   isNotFoundRedirect,
+  isHttpUrl,
   getCheckUrl,
+  checkUrlForExpiration,
 } = require("./expirationWorker");
 
 test("isExpirationSignal marks HTTP 404 as expired", () => {
@@ -35,6 +37,12 @@ test("isNotFoundRedirect ignores unrelated query", () => {
   assert.equal(isNotFoundRedirect("https://example.com/apply?x=1"), false);
 });
 
+test("isHttpUrl accepts http/https and rejects browser internal schemes", () => {
+  assert.equal(isHttpUrl("https://example.com"), true);
+  assert.equal(isHttpUrl("http://example.com"), true);
+  assert.equal(isHttpUrl("chrome-error://chromewebdata/"), false);
+});
+
 test("getCheckUrl prefers applicationUrl and falls back to url", () => {
   assert.equal(
     getCheckUrl({ applicationUrl: "https://apply.example.com", url: "https://job.example.com" }),
@@ -45,4 +53,21 @@ test("getCheckUrl prefers applicationUrl and falls back to url", () => {
     getCheckUrl({ applicationUrl: "", url: "https://job.example.com" }),
     "https://job.example.com"
   );
+});
+
+test("getCheckUrl falls back to url when applicationUrl has invalid scheme", () => {
+  assert.equal(
+    getCheckUrl({
+      applicationUrl: "chrome-error://chromewebdata/",
+      url: "https://job.example.com",
+    }),
+    "https://job.example.com"
+  );
+});
+
+test("checkUrlForExpiration handles invalid scheme without throwing", async () => {
+  const result = await checkUrlForExpiration("chrome-error://chromewebdata/");
+  assert.equal(result.isExpired, false);
+  assert.equal(result.statusCode, 0);
+  assert.equal(result.fetchError, "invalid_url_scheme");
 });

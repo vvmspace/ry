@@ -62,5 +62,29 @@ module.exports = {
         USER_DIR: "./ud2"
       },
     },
+    {
+      name: "ry-match-rate",
+      script: "./src/workers/matchRateWorker.js",
+      instances: 1,
+      autorestart: true,
+      restart_delay: 60000,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "production",
+      },
+    },
+    {
+      name: "ry-expiration",
+      script: "./src/workers/expirationWorker.js",
+      instances: 1,
+      autorestart: true,
+      restart_delay: 120000,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "production",
+      },
+    },
   ],
 };

@@ -51,9 +51,7 @@ Stores questions and how often they appears like:
 
 When application worker founds question what he can't answer - he adds it or increments count.
 
-## Parsing steps
-
-### Jobs List Parser Worker
+## Jobs List Parser Worker
 
 Check optional PENDING_SUCCESS_INTERVAL, PENDING_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - PENDING_SUCCESS_INTERVAL) < inSeconds(state.last.success.pending) or NOW_S - PENDING_ERROR_INTERVAL) < inSeconds(state.last.error.pending) then process.exit();
 
@@ -64,7 +62,7 @@ If page with same url is exist in database - ignore it.
 
 In case of success - saves current datetime to state.json: state.last.success.pending, in case of error (or total saved 0) to state.last.error.pending
 
-### Job Page Parser Worker
+## Job Page Parser Worker
 ex: html_examples/remoteyeah/job_page.example.html
 0. Check optional SAVED_SUCCESS_INTERVAL, SAVED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.success.saved) or NOW_S - SAVED_ERROR_INTERVAL) < inSeconds(state.last.error.saved) then process.exit();
 
@@ -90,7 +88,7 @@ Checks for expriration (same method as in expiration worker), if expired - save 
 Gets domain as additional field.
 Saves job to db with status `saved`.
 
-#### Job page
+### Job page
 
 Job page contains:
 - title
@@ -101,7 +99,7 @@ Job page contains:
 
 in case of success - saves current datetime to state.json: state.last.success.saved, in case of error of no pending to state.last.error.saved
 
-### Links fixer worker
+## Links fixer worker
 
 <context>Some links was not parsed properly, when browser wasn't logged in to remoteyeah.com, as result we have `applicationUrl` with url like `https://remoteyeah.com/login?redirect_url=https%3A%2F%2Fremoteyeah.com%2Fjobs%2Fremote-senior-frontend-software-engineer-reactjs-and-nextjs-mindera`.</context>
 
@@ -114,12 +112,54 @@ We need to fix it:
 
 Use same methods as `Job Parser Worker`
 
+## Abstract AI
 
-### CV Generation Worker
+### LLM APIs Abstraction concept
+
+We should use abstraction layer for LLM APIs to be able to switch between different LLM providers easily.
+
+`model` should be passed by parameter and based on `model` we should use different LLM providers following abstraction principles.
+
+By default we use `gemma` and `gemini-2.5-flash` for free.
+
+### LLM API Keys
+
+API keys should be stored in environment variables, separated by commas, like:
+
+```
+LOCAL_LLM_API_KEY= # OpenAI compatibke
+LOCAL_LLM_API_URL= # optional, if provided  
+GEMINI_API_KEY=gemini_key1,gemini_key2,gemini_key3
+OPENAI_API_KEY=openai_key
+OPENROUTER_API_KEY=openrouter_key1,openrouter_key2
+```
+
+If there are more than 1 key for provider, we should use the random key from the list.
+
+### Prompts templating
+
+#### Variables
+
+%variable% %variable1|default%
+
+### Methods
+
+- .ask(prompt: string, model_and_fallbacks_by_commas?: string) `.ask('Hello')`, `.ask('Hello','local,gemma,openrouter:free')`
+- .json(prompt: string, example_or_description: string | any, model_and_fallbacks_by_commas?: string): `.json('2+2=', { result: 4 })`, `.json('2+2=', 'result: number, example: { result: 4 }, 'gemma,gemini-2.5-flash')`, `.json('bla bla from 0 to 100', { rate: 100 }, 'local,gemma'))`
+
+
+## Match Rate Worker
+
+If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
+- get 1 cv: `updatedAt` asc
+- use `prompts/rate.md` + ai service + cv text + vacancy text + `local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`
+- save `match_rate` and `updatedAt`
+
+## CV Generation Worker
 
 0. Check optional GENERATED_SUCCESS_INTERVAL, GENERATED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - GENERATED_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - GENERATED_ERROR_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
 
-1. Gets 1 `saved` from DB:
+1. Gets 1 `saved` (`match_rate` desc, `createdAt` desc) from DB:
 
 Check priority.json file like:
 ```

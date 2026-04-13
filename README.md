@@ -50,6 +50,7 @@ npm run start       # builds frontend and starts API
 npm run jobs:list    # scrape job list -> status: pending
 npm run jobs:parse   # parse one job page -> status: saved
 npm run cv:generate  # generate CV for one job -> status: generated
+npm run jobs:expire  # checks one job application page -> status: expired (if not found)
 ```
 
 ### Pipeline
@@ -57,6 +58,7 @@ npm run cv:generate  # generate CV for one job -> status: generated
 1. `jobs:list` — finds job URLs, saves them to DB with status `pending`
 2. `jobs:parse` — takes one `pending` job, parses the page, clicks Apply to extract `applicationUrl`, saves with status `saved`
 3. `cv:generate` — takes one `saved` job, generates a CV via API, saves with status `generated`
+4. `jobs:expire` — takes one non-final job by oldest `updatedAt`, checks application page and marks as `expired` if missing
 
 ### state.json
 
