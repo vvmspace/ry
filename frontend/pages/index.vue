@@ -47,7 +47,7 @@ const error = ref("");
 const statusFilter = ref<JobStatus | "">("");
 const refreshInterval = ref("0");
 const page = ref(1);
-const limit = ref(25);
+const limit = ref(100);
 const domainFilter = ref("");
 const companyFilter = ref("");
 const titleFilter = ref("");
@@ -56,7 +56,7 @@ const pageSizeOptions = [10, 25, 50, 100];
 const pagination = ref<JobsResponse>({
   items: [],
   page: 1,
-  limit: 25,
+  limit: 100,
   total: 0,
   totalPages: 0,
   hasPrevPage: false,
