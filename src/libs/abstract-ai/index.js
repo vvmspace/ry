@@ -21,7 +21,7 @@ class AbstractAI {
   }
 
   async ask(prompt, models = 'gemma,gemini-2.5-flash', variables = {}, systemInstruction = null, responseFormat = null, schema = null) {
-    const modelList = models.split(',').map(m => m.trim());
+    const modelList = models.split(',').filter(model => model !== 'local' ? true : !!process.env.LOCAL_LLM_API_KEY).map(m => m.trim());
     const finalPrompt = this.replaceVariables(prompt, variables);
 
     for (const modelIdent of modelList) {
@@ -47,7 +47,7 @@ class AbstractAI {
         schema = exampleOrSchema;
       } else {
         // If it's just an example object
-        const formatHint = typeof exampleOrSchema === 'object' 
+        const formatHint = typeof exampleOrSchema === 'object'
           ? JSON.stringify(exampleOrSchema, null, 2)
           : exampleOrSchema;
         jsonPrompt += `\n\nREQUIRED JSON FORMAT:\n${formatHint}`;
@@ -58,19 +58,19 @@ class AbstractAI {
     try {
       // 1. Initial trim
       let cleaned = response.trim();
-      
+
       // 2. Remove markdown code blocks if they exist
       cleaned = cleaned.replace(/^```(json)?/i, '').replace(/```$/i, '').trim();
-      
+
       // 3. Find the most likely JSON object or array
       const startBracket = cleaned.indexOf('{');
       const startSquare = cleaned.indexOf('[');
       const endBracket = cleaned.lastIndexOf('}');
       const endSquare = cleaned.lastIndexOf(']');
-      
+
       let start = -1;
       let end = -1;
-      
+
       // If both {} and [] exist, pick the outer-most one
       if (startBracket !== -1 && (startSquare === -1 || startBracket < startSquare)) {
         start = startBracket;
@@ -79,11 +79,11 @@ class AbstractAI {
         start = startSquare;
         end = endSquare;
       }
-      
+
       if (start !== -1 && end !== -1 && end >= start) {
         cleaned = cleaned.substring(start, end + 1);
       }
-      
+
       return JSON.parse(cleaned);
     } catch (err) {
       console.error('[AbstractAI] Failed to parse JSON. Response was:', response);
@@ -108,7 +108,7 @@ class AbstractAI {
 
   async callModel(modelIdent, prompt, systemInstruction, responseFormat, schema) {
     const lowIdent = modelIdent.toLowerCase();
-    
+
     // Mapping identifiers to provider:model
     if (lowIdent === 'gemma' || lowIdent.includes('gemma-4')) {
       // Map gemma variants to Google Gemini API to use free tier

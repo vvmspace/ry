@@ -86,5 +86,17 @@ module.exports = {
         NODE_ENV: "production",
       },
     },
+    {
+      name: "ry-cover-letter",
+      script: "./src/workers/coverLetterWorker.js",
+      instances: 1,
+      autorestart: true,
+      restart_delay: 60000,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "production",
+      },
+    },
   ],
 };

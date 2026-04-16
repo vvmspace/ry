@@ -56,7 +56,7 @@ function configureDns() {
       .filter(Boolean);
     if (servers.length) {
       dns.setServers(servers);
-      console.log(`[mongo] custom DNS servers configured: ${servers.join(", ")}`);
+      // console.log(`[mongo] custom DNS servers configured: ${servers.join(", ")}`);
     }
   }
 
@@ -101,9 +101,9 @@ async function connectWithRetries(uri, options, retries, retryDelayMs, label) {
   let lastError = null;
   for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {
-      console.log(`[mongo] ${label}: connect attempt ${attempt}/${retries} ${sanitizeMongoUri(uri)}`);
+      // console.log(`[mongo] ${label}: connect attempt ${attempt}/${retries} ${sanitizeMongoUri(uri)}`);
       await mongoose.connect(uri, options);
-      console.log(`[mongo] ${label}: connected`);
+      // console.log(`[mongo] ${label}: connected`);
       return mongoose;
     } catch (err) {
       lastError = err;

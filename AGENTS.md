@@ -155,6 +155,14 @@ If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
 - use `prompts/rate.md` + ai service + cv text + vacancy text + `local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`
 - save `match_rate` and `updatedAt`
 
+## Cover Letter Generation Worker
+
+If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
+- get 1 cv: `match_rate` desc, `createdAt` desc, status: `saved`,`generated`
+- use `prompts/cover_letter.md` + ai service + cv text + vacancy text + `local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`
+- save `coverLetter` and `updatedAt`
+
+
 ## CV Generation Worker
 
 0. Check optional GENERATED_SUCCESS_INTERVAL, GENERATED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - GENERATED_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - GENERATED_ERROR_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
@@ -257,7 +265,7 @@ Fields:
 - domain (top level: jobs.lever.co -> lever.co, jobs.remoteok.com -> remoteok.com, ...)
 - status: select box with statuses, call update API on change and fetch vacancies list
 - link to vacancy (applicationUrl), set 'started' status on click
-- copy: icons buttons: greeting_message, email, why_answer if provided
+- copy: icons buttons: greeting_message, cover_letter, email, why_answer if provided
 - link to CV: PDF icon, download on click
 
 ## Deployment: github on push githook from local machine

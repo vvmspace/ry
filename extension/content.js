@@ -1,13 +1,20 @@
 const LINKEDIN_LABEL_RE = /linkedin/i;
-const FILLED_FLAG = "linkedinAutofillApplied";
+const PHONE_LABEL_RE = /telephone|phone/i;
+const PORTFOLIO_LABEL_RE = /portfolio|site/i;
+const SALARY_LABEL_RE = /salary|expectations|compensation/i;
+
+const FILLED_FLAG = "autofillApplied";
 const INITIAL_FILL_DELAY_MS = 2000;
 const RETRY_DELAYS_MS = [0, 300, 1000, 2000, 4000];
-const LOG_PREFIX = "[linkedin-autofill]";
+const LOG_PREFIX = "[remoteyeah-autofill]";
 
 const hashmap = {
   "linkedIn": "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/",
+  "phone": "+37498330380",
+  "portfolio": "https://github.com/vvmspace/theproject",
   "salary usd": "8000",
-  "salary eur": "7000"
+  "salary eur": "7000",
+  "salary expectations": "84000-132000$/y"
 };
 
 function log(...args) {
@@ -36,11 +43,11 @@ function setNativeValue(input, value) {
   }
 }
 
-function fillInput(input, linkedinUrl) {
-  if (!input || !linkedinUrl || input.dataset[FILLED_FLAG] === "true") {
+function fillInput(input, value) {
+  if (!input || !value || input.dataset[FILLED_FLAG] === "true") {
     log("skipping fill", {
       hasInput: Boolean(input),
-      hasLinkedinUrl: Boolean(linkedinUrl),
+      hasValue: Boolean(value),
       alreadyFilled: input?.dataset?.[FILLED_FLAG] === "true"
     });
     return;
@@ -55,11 +62,11 @@ function fillInput(input, linkedinUrl) {
     return;
   }
 
-  log("filling input", { id: input.id, name: input.name, linkedinUrl });
-  setNativeValue(input, linkedinUrl);
+  log("filling input", { id: input.id, name: input.name, value });
+  setNativeValue(input, value);
   dispatchInputEvents(input);
 
-  if ((input.value || "").trim() === linkedinUrl) {
+  if ((input.value || "").trim() === value) {
     input.dataset[FILLED_FLAG] = "true";
     log("fill confirmed", { id: input.id, name: input.name });
   } else {
@@ -105,54 +112,59 @@ function findInputByLabel(label) {
   return nestedInput;
 }
 
-function fillLinkedinFields(linkedinUrl) {
-  if (!linkedinUrl) {
-    log("linkedin url is empty, nothing to fill");
-    return;
-  }
-
+function autofillFields(customValues = {}) {
   const labels = document.querySelectorAll("label");
   log("scan started", { labelsCount: labels.length });
 
+  const linkedinUrl = customValues.linkedinUrl || hashmap.linkedIn;
+  const rules = [
+    { re: LINKEDIN_LABEL_RE, value: linkedinUrl },
+    { re: PHONE_LABEL_RE, value: hashmap.phone },
+    { re: PORTFOLIO_LABEL_RE, value: hashmap.portfolio },
+    { re: SALARY_LABEL_RE, value: hashmap["salary expectations"] }
+  ];
+
   for (const label of labels) {
     const labelText = (label.textContent || "").trim();
-    if (!LINKEDIN_LABEL_RE.test(labelText)) {
-      continue;
-    }
 
-    log("matching label found", { text: labelText });
-    const input = findInputByLabel(label);
-    const isSupportedInput =
-      input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement;
-    const isTextualInput =
-      input instanceof HTMLTextAreaElement ||
-      ["text", "url", "email", "search", "tel", ""].includes(input?.type || "");
+    for (const rule of rules) {
+      if (rule.re.test(labelText)) {
+        log("matching label found", { text: labelText, rule: rule.re.toString() });
+        const input = findInputByLabel(label);
+        const isSupportedInput =
+          input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement;
+        const isTextualInput =
+          input instanceof HTMLTextAreaElement ||
+          ["text", "url", "email", "search", "tel", ""].includes(input?.type || "");
 
-    if (isSupportedInput && isTextualInput) {
-      fillInput(input, linkedinUrl);
-    } else {
-      log("matching label found but suitable text input missing", {
-        hasInput: Boolean(input),
-        tagName: input?.tagName || null,
-        type: input?.type || null
-      });
+        if (isSupportedInput && isTextualInput) {
+          fillInput(input, rule.value);
+        } else {
+          log("matching label found but suitable text input missing", {
+            hasInput: Boolean(input),
+            tagName: input?.tagName || null,
+            type: input?.type || null
+          });
+        }
+        break;
+      }
     }
   }
 }
 
-function startObserver(linkedinUrl) {
+function startObserver(customValues) {
   log("observer starting", { initialDelayMs: INITIAL_FILL_DELAY_MS });
   for (const retryDelayMs of RETRY_DELAYS_MS) {
     const totalDelayMs = INITIAL_FILL_DELAY_MS + retryDelayMs;
     window.setTimeout(() => {
       log("scheduled fill fired", { totalDelayMs });
-      fillLinkedinFields(linkedinUrl);
+      autofillFields(customValues);
     }, totalDelayMs);
   }
 
   const observer = new MutationObserver(() => {
     log("mutation observed, rescanning");
-    fillLinkedinFields(linkedinUrl);
+    autofillFields(customValues);
   });
 
   observer.observe(document.documentElement, {
@@ -163,5 +175,5 @@ function startObserver(linkedinUrl) {
 
 chrome.storage.sync.get(["linkedinUrl"], ({ linkedinUrl }) => {
   log("storage loaded", { linkedinUrl });
-  startObserver(linkedinUrl || "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/");
+  startObserver({ linkedinUrl });
 });

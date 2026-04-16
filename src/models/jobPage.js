@@ -28,6 +28,8 @@ const jobPageSchema = new mongoose.Schema(
     email: String,
     topTechAndSkills: String,
     whyAnswer: String,
+    matchRateComment: String,
+    coverLetter: String,
     /** Optional:
      * Job title - sourceJobTitle
       Job type - sourceJobType (Full-time/...)

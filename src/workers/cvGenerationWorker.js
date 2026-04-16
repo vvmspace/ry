@@ -196,7 +196,9 @@ async function runCvGenerationWorker() {
 
     job.cvUrl = cvUrl;
     job.greetingMessage = greetingMessage;
-    job.matchRate = matchRate;
+    if (job.matchRate === undefined || job.matchRate === null) {
+      job.matchRate = matchRate;
+    }
     job.email = email;
     job.topTechAndSkills = topTechAndSkills;
     job.whyAnswer = whyAnswer;
