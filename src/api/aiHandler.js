@@ -101,6 +101,8 @@ async function handleAiAsk(req, res, _params, query) {
       questions: JSON.stringify(questions),
     });
 
+    console.log(filledPrompt);
+
     // 5. Build the expected result schema from the questions
     const exampleResult = {};
     for (const [q, hint] of Object.entries(questions)) {
