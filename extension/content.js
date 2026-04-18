@@ -123,6 +123,18 @@ async function fetchAiAnswers(applicationId) {
   const labels = document.querySelectorAll("label");
   const questions = {};
 
+
+  const toSnakeCase = (str) => {
+    if (!str) return '';
+
+    return str
+      .trim()                                // trim
+      .toLowerCase()                         // toLowerCase
+      .replace(/[\s-]+/g, '_')               // replace spaces and hyphens with underscores
+      // replace special characters with empty string
+      .replace(/[^a-zA-Z0-9_]/g, '')
+      .replace(/^-+|-+$/g, '');              // remove leading/trailing hyphens
+  };
   for (const label of labels) {
     const labelText = (label.textContent || "").trim();
     if (!labelText) continue;
@@ -134,8 +146,13 @@ async function fetchAiAnswers(applicationId) {
       PORTFOLIO_LABEL_RE.test(labelText) ||
       SALARY_LABEL_RE.test(labelText);
 
-    if (!isBasicField) {
-      questions[labelText] = "string";
+
+    const isIgnored = ['Name', 'Yes', 'Email', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
+
+    console.log("labelText", labelText, "isIgnored", isIgnored);
+
+    if (!isBasicField && !isIgnored) {
+      questions[toSnakeCase(labelText)] = labelText;
     }
   }
 
@@ -143,6 +160,8 @@ async function fetchAiAnswers(applicationId) {
     log("no questions found to ask AI");
     return {};
   }
+
+  console.log("questions", questions);
 
   try {
     const response = await new Promise((resolve, reject) => {
@@ -180,6 +199,7 @@ async function init(customValues) {
   const applicationId = idMatch ? idMatch[1] : fullUrl;
   log("application ID extracted", { applicationId });
 
+  await new Promise(resolve => setTimeout(resolve, 5000));
   // Fetch AI answers
   aiAnswers = await fetchAiAnswers(applicationId);
 
