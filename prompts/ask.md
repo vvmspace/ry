@@ -23,17 +23,6 @@ Request example:
 Questions to answer:
 %questions%
 
-Response example: 
-```json
-{
-    "answers": {
-        "What is the candidate's name?": "John Doe",
-        "What is the candidate's age?": 30,
-        "Is the candidate a student?": false
-    }
-}
-```
-
 Rules:
 - Answer each question truthfully based on the CV and vacancy context.
 - If the answer type should be boolean (true/false), return a boolean.
@@ -41,3 +30,15 @@ Rules:
 - Otherwise return a string answer.
 - Do not add extra keys or commentary.
 - Return ONLY the JSON object, nothing else.
+
+Response must be only json object, without any additional text.
+Response in json format example:
+`{
+    "answers": {
+        "What is the candidate's name?": "John Doe",
+        "What is the candidate's age?": 30,
+        "Is the candidate a student?": false
+    }
+}`
+
+Response:
