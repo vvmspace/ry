@@ -181,7 +181,21 @@ class AbstractAI {
     }
 
     const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.filter(p => !!p.thought)?.[0]?.text;
+
+    const isValidJson = (str) => {
+      try {
+        JSON.parse(str);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    };
+
+    const text = data?.candidates?.[0]?.content?.parts?.filter(p =>
+      responseFormat === 'json' ? isValidJson(p.text) : true
+    )?.[0]?.text;
+
+    return text;
   }
 
   async callOpenRouter(modelName, prompt, systemInstruction, responseFormat) {
