@@ -181,7 +181,7 @@ class AbstractAI {
     }
 
     const data = await response.json();
-    console.log(data);
+    console.log(data?.candidates?.[0]?.content?.parts);
     return data?.candidates?.[0]?.content?.parts?.[0]?.text;
   }
 
