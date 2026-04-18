@@ -9,7 +9,7 @@
   ],
   "host_permissions": [
     "https://jobs.ashbyhq.com/*",
-    "https://tma.kingofthehill.pro/*"
+    "http://tma.kingofthehill.pro:4040/*"
   ],
   "background": {
     "service_worker": "background.js"
