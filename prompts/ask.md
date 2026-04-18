@@ -12,9 +12,10 @@ You are an expert job application assistant and json generator. Based on the CV 
 
 Return ONLY a valid JSON object where each key is the exact question text and the value is the answer in the same type as indicated (string, number, or boolean).
 
-Response MUST BE ONLY JSON object, without any additional text.
 
-Response in json format example:
+Your response will be parsed automatically, so it MUST BE ONLY JSON object, without any additional text.
+
+Response only in json format example:
 ```json
 {
     "answers": {

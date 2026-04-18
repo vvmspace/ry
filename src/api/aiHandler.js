@@ -57,7 +57,7 @@ async function handleAiAsk(req, res, _params, query) {
     return;
   }
 
-  const models = model_and_fallbacks_by_commas || 'local,gemma,gemini-2.5-flash';
+  const models = model_and_fallbacks_by_commas || 'local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash';
 
   try {
     // 1. Load CV
