@@ -104,10 +104,9 @@ async function handleAiAsk(req, res, _params, query) {
     console.log(filledPrompt);
 
     // 5. Build the expected result schema from the questions
-    const exampleResult = {};
-    for (const [q, hint] of Object.entries(questions)) {
-      exampleResult[q] = hint; // keeps the original type hint as example
-    }
+    const exampleResult = {
+      "answers": questions
+    };
 
     // 6. Call AI
     const result = await ai.json(filledPrompt, exampleResult, models);
