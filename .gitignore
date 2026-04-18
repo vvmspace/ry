@@ -25,3 +25,9 @@ build/
 .DS_Store
 Thumbs.db
 ```
+
+tmp
+ud2
+userdir
+priority.json
+state.json
