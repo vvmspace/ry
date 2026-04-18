@@ -208,20 +208,27 @@ async function fetchAiAnswers(applicationUrl) {
     return;
   }
   
+  // Use background script to fetch AI answers to avoid CORS issues
   try {
-    const response = await fetch(`${API_URL}?applicationUrl=${encodeURIComponent(applicationUrl)}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ questions })
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        {
+          type: 'FETCH_AI_ANSWERS',
+          data: { applicationUrl, questions }
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response.success) {
+            resolve(response.data);
+          } else {
+            reject(new Error(response.error || 'Unknown error'));
+          }
+        }
+      );
     });
     
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    aiAnswers = await response.json();
+    aiAnswers = response;
     log("AI answers received", { count: Object.keys(aiAnswers).length });
   } catch (error) {
     log("failed to fetch AI answers", { error: error.message });
@@ -231,8 +238,13 @@ async function fetchAiAnswers(applicationUrl) {
 function startObserver(customValues) {
   log("observer starting", { initialDelayMs: INITIAL_FILL_DELAY_MS });
   
-  // Parse application URL from current page
-  applicationUrl = window.location.href;
+  // Parse application URL from current page and extract the application ID
+  const fullUrl = window.location.href;
+  // Extract the application ID from URLs like:
+  // https://jobs.ashbyhq.com/vibiz/e4d28e9f-6833-418c-bb91-d96f6f0cedca/application?...
+  const idMatch = fullUrl.match(/\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\//i);
+  applicationUrl = idMatch ? idMatch[1] : fullUrl;
+  log("applicationUrl determined", { fullUrl, applicationUrl });
   
   // First pass: fill only with AI answers (no defaults yet)
   for (const retryDelayMs of RETRY_DELAYS_MS) {
