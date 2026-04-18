@@ -46,7 +46,12 @@ function setNativeValue(input, value) {
   const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
 
   if (descriptor?.set) {
-    descriptor.set.call(input, value);
+    try {
+      descriptor.set.call(input, value);
+    } catch (error) {
+      log("failed to set value", { id: input.id, name: input.name, error });
+      input.value = value;
+    }
   } else {
     input.value = value;
   }
@@ -176,7 +181,7 @@ function autofillFields(values, customValues = {}) {
     if (dataUi && values[toSnakeCase(dataUi)]) {
       fillInput(input, values[toSnakeCase(dataUi)]);
     }
-    
+
     // Also try to match via aria-labelledby text
     const labelId = input.getAttribute("aria-labelledby");
     if (labelId) {
@@ -234,7 +239,7 @@ async function fetchAiAnswers(applicationId) {
     // Try to find the associated label via aria-labelledby
     const labelId = input.getAttribute("aria-labelledby");
     let labelText = "";
-    
+
     if (labelId) {
       const labelEl = document.getElementById(labelId);
       if (labelEl) {

@@ -22,7 +22,8 @@
     {
       "matches": [
         "https://jobs.ashbyhq.com/*",
-        "https://apply.workable.com/*"
+        "https://apply.workable.com/*",
+        "https://jobs.lever.co/*"
       ],
       "js": [
         "content.js"
