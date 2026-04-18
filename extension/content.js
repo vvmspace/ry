@@ -110,6 +110,29 @@ function autofillFields(values, customValues = {}) {
   const labels = document.querySelectorAll("label");
   const linkedinUrl = customValues.linkedinUrl || defaultValues.linkedIn;
 
+  // Build a map of snake_case label text -> label element for lookup
+  const labelTextMap = new Map();
+  for (const label of labels) {
+    const labelText = (label.textContent || "").trim();
+    if (labelText) {
+      labelTextMap.set(toSnakeCase(labelText), label);
+    }
+  }
+
+  // First pass: fill by snake_case keys from AI answers matching label text
+  for (const [snakeKey, value] of Object.entries(values)) {
+    const label = labelTextMap.get(snakeKey);
+    if (label) {
+      const input = findInputByLabel(label);
+      if (input instanceof HTMLInputElement && isTextualInput(input)) {
+        fillInput(input, value);
+      } else if (input instanceof HTMLTextAreaElement) {
+        fillInput(input, value);
+      }
+    }
+  }
+
+  // Second pass: traditional label-based filling for basic fields
   for (const label of labels) {
     const labelText = (label.textContent || "").trim();
     if (!labelText) continue;
@@ -153,6 +176,19 @@ function autofillFields(values, customValues = {}) {
     if (dataUi && values[toSnakeCase(dataUi)]) {
       fillInput(input, values[toSnakeCase(dataUi)]);
     }
+    
+    // Also try to match via aria-labelledby text
+    const labelId = input.getAttribute("aria-labelledby");
+    if (labelId) {
+      const labelEl = document.getElementById(labelId);
+      if (labelEl) {
+        const labelText = (labelEl.textContent || "").trim();
+        const snakeKey = toSnakeCase(labelText);
+        if (values[snakeKey]) {
+          fillInput(input, values[snakeKey]);
+        }
+      }
+    }
   }
 }
 
@@ -162,6 +198,7 @@ async function fetchAiAnswers(applicationId) {
   // Extract all questions from labels in one pass
   const labels = document.querySelectorAll("label");
   const questions = {};
+  const labelMap = new Map(); // Map snake_case key -> labelText for later lookup
 
 
 
@@ -182,7 +219,9 @@ async function fetchAiAnswers(applicationId) {
     console.log("labelText", labelText, "isIgnored", isIgnored);
 
     if (!isBasicField && !isIgnored) {
-      questions[toSnakeCase(labelText)] = labelText;
+      const snakeKey = toSnakeCase(labelText);
+      questions[snakeKey] = labelText;
+      labelMap.set(snakeKey, labelText);
     }
   }
 
@@ -218,7 +257,9 @@ async function fetchAiAnswers(applicationId) {
     const isIgnored = ['Name', 'Yes', 'Email', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
 
     if (!isBasicField && !isIgnored) {
-      questions[toSnakeCase(dataUi)] = labelText;
+      const snakeKey = toSnakeCase(labelText);
+      questions[snakeKey] = labelText;
+      labelMap.set(snakeKey, labelText);
     }
   }
 
