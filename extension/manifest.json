@@ -6,6 +6,10 @@
   "permissions": [
     "storage"
   ],
+  "host_permissions": [
+    "https://jobs.ashbyhq.com/*",
+    "https://tma.kingofthehill.pro/*"
+  ],
   "action": {
     "default_title": "LinkedIn Autofill",
     "default_popup": "popup.html"
