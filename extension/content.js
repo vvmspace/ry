@@ -47,20 +47,20 @@ function setNativeValue(input, value) {
 
 function fillInput(input, value) {
   if (!input || !value || input.dataset[FILLED_FLAG] === "true") {
-    log("skipping fill", {
-      hasInput: Boolean(input),
-      hasValue: Boolean(value),
-      alreadyFilled: input?.dataset?.[FILLED_FLAG] === "true"
-    });
+    // log("skipping fill", {
+    //   hasInput: Boolean(input),
+    //   hasValue: Boolean(value),
+    //   alreadyFilled: input?.dataset?.[FILLED_FLAG] === "true"
+    // });
     return;
   }
 
   if (input.value && input.value.trim().length > 0) {
-    log("input already has value, skipping", {
-      id: input.id,
-      name: input.name,
-      value: input.value
-    });
+    // log("input already has value, skipping", {
+    //   id: input.id,
+    //   name: input.name,
+    //   value: input.value
+    // });
     return;
   }
 
@@ -143,11 +143,11 @@ function autofillFields(customValues = {}, useDefaults = false) {
           // Only fill default values if useDefaults is true
           // Otherwise, only fill if we have an AI answer
           let valueToFill = aiAnswers[labelText];
-          
+
           if (!valueToFill && useDefaults) {
             valueToFill = rule.value;
           }
-          
+
           if (valueToFill) {
             fillInput(input, valueToFill);
           } else if (!useDefaults) {
@@ -163,7 +163,7 @@ function autofillFields(customValues = {}, useDefaults = false) {
         break;
       }
     }
-    
+
     // Also check for AI answers for non-basic fields
     if (aiAnswers[labelText]) {
       const input = findInputByLabel(label);
@@ -172,7 +172,7 @@ function autofillFields(customValues = {}, useDefaults = false) {
       const isTextualInput =
         input instanceof HTMLTextAreaElement ||
         ["text", "url", "email", "search", "tel", ""].includes(input?.type || "");
-      
+
       if (isSupportedInput && isTextualInput) {
         fillInput(input, aiAnswers[labelText]);
       }
@@ -182,32 +182,32 @@ function autofillFields(customValues = {}, useDefaults = false) {
 
 async function fetchAiAnswers(applicationUrl) {
   log("fetching AI answers", { applicationUrl });
-  
+
   // Extract questions from the page
   const labels = document.querySelectorAll("label");
   const questions = {};
-  
+
   for (const label of labels) {
     const labelText = (label.textContent || "").trim();
     if (labelText) {
       // Check if this is a question field (not basic info like LinkedIn, phone, etc.)
-      const isBasicField = 
+      const isBasicField =
         LINKEDIN_LABEL_RE.test(labelText) ||
         PHONE_LABEL_RE.test(labelText) ||
         PORTFOLIO_LABEL_RE.test(labelText) ||
         SALARY_LABEL_RE.test(labelText);
-      
+
       if (!isBasicField) {
         questions[labelText] = "string";
       }
     }
   }
-  
+
   if (Object.keys(questions).length === 0) {
     log("no questions found to ask AI");
     return;
   }
-  
+
   // Use background script to fetch AI answers to avoid CORS issues
   try {
     const response = await new Promise((resolve, reject) => {
@@ -227,7 +227,7 @@ async function fetchAiAnswers(applicationUrl) {
         }
       );
     });
-    
+
     aiAnswers = response;
     log("AI answers received", { count: Object.keys(aiAnswers).length });
   } catch (error) {
@@ -237,7 +237,7 @@ async function fetchAiAnswers(applicationUrl) {
 
 function startObserver(customValues) {
   log("observer starting", { initialDelayMs: INITIAL_FILL_DELAY_MS });
-  
+
   // Parse application URL from current page and extract the application ID
   const fullUrl = window.location.href;
   // Extract the application ID from URLs like:
@@ -245,7 +245,7 @@ function startObserver(customValues) {
   const idMatch = fullUrl.match(/\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\//i);
   applicationUrl = idMatch ? idMatch[1] : fullUrl;
   log("applicationUrl determined", { fullUrl, applicationUrl });
-  
+
   // First pass: fill only with AI answers (no defaults yet)
   for (const retryDelayMs of RETRY_DELAYS_MS) {
     const totalDelayMs = INITIAL_FILL_DELAY_MS + retryDelayMs;
@@ -254,7 +254,7 @@ function startObserver(customValues) {
       autofillFields(customValues, false);
     }, totalDelayMs);
   }
-  
+
   // Fetch AI answers first, then fill with defaults after receiving them
   fetchAiAnswers(applicationUrl).then(() => {
     log("AI answers received, scheduling default fill");
