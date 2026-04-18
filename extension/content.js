@@ -96,6 +96,15 @@ function findInputByLabel(label) {
     }
   }
 
+  // Lever: look for input/textarea within the same parent container
+  const appQuestion = label.closest(".application-question");
+  if (appQuestion) {
+    const appField = appQuestion.querySelector(".application-field");
+    if (appField) {
+      return appField.querySelector("input, textarea");
+    }
+  }
+
   return (
     label.parentElement?.querySelector("input, textarea") ||
     label.querySelector("input, textarea")
@@ -195,6 +204,30 @@ function autofillFields(values, customValues = {}) {
       }
     }
   }
+
+  // Lever: fill inputs within .application-question elements
+  const leverQuestions = document.querySelectorAll(".application-question.custom-question");
+  for (const question of leverQuestions) {
+    // Find the label text within .application-label
+    const labelEl = question.querySelector(".application-label .text");
+    if (!labelEl) continue;
+
+    const labelText = (labelEl.textContent || "").trim();
+    if (!labelText) continue;
+
+    const snakeKey = toSnakeCase(labelText);
+    const valueToFill = values[snakeKey];
+    if (!valueToFill) continue;
+
+    // Find the textarea/input within .application-field
+    const appField = question.querySelector(".application-field");
+    if (appField) {
+      const input = appField.querySelector("input, textarea");
+      if (input && !input.dataset[FILLED_FLAG] && (!input.value || input.value.trim().length === 0)) {
+        fillInput(input, valueToFill);
+      }
+    }
+  }
 }
 
 async function fetchAiAnswers(applicationId) {
@@ -251,6 +284,32 @@ async function fetchAiAnswers(applicationId) {
     if (!labelText) {
       labelText = dataUi;
     }
+
+    // Skip basic fields and ignored patterns
+    const isBasicField =
+      LINKEDIN_LABEL_RE.test(labelText) ||
+      PHONE_LABEL_RE.test(labelText) ||
+      PORTFOLIO_LABEL_RE.test(labelText) ||
+      SALARY_LABEL_RE.test(labelText);
+
+    const isIgnored = ['Name', 'Yes', 'Email', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
+
+    if (!isBasicField && !isIgnored) {
+      const snakeKey = toSnakeCase(labelText);
+      questions[snakeKey] = labelText;
+      labelMap.set(snakeKey, labelText);
+    }
+  }
+
+  // Lever: extract questions from .application-question elements
+  const leverQuestions = document.querySelectorAll(".application-question.custom-question");
+  for (const question of leverQuestions) {
+    // Find the label text within .application-label
+    const labelEl = question.querySelector(".application-label .text");
+    if (!labelEl) continue;
+
+    const labelText = (labelEl.textContent || "").trim();
+    if (!labelText) continue;
 
     // Skip basic fields and ignored patterns
     const isBasicField =
