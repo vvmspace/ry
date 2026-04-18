@@ -114,9 +114,9 @@ function findInputByLabel(label) {
   return nestedInput;
 }
 
-function autofillFields(customValues = {}) {
+function autofillFields(customValues = {}, useDefaults = false) {
   const labels = document.querySelectorAll("label");
-  log("scan started", { labelsCount: labels.length });
+  log("scan started", { labelsCount: labels.length, useDefaults });
 
   const linkedinUrl = customValues.linkedinUrl || defaultValues.linkedIn;
   const rules = [
@@ -140,9 +140,19 @@ function autofillFields(customValues = {}) {
           ["text", "url", "email", "search", "tel", ""].includes(input?.type || "");
 
         if (isSupportedInput && isTextualInput) {
-          // Check if we have an AI answer for this label
-          let valueToFill = aiAnswers[labelText] || rule.value;
-          fillInput(input, valueToFill);
+          // Only fill default values if useDefaults is true
+          // Otherwise, only fill if we have an AI answer
+          let valueToFill = aiAnswers[labelText];
+          
+          if (!valueToFill && useDefaults) {
+            valueToFill = rule.value;
+          }
+          
+          if (valueToFill) {
+            fillInput(input, valueToFill);
+          } else if (!useDefaults) {
+            log("skipping default fill, waiting for AI answers", { text: labelText });
+          }
         } else {
           log("matching label found but suitable text input missing", {
             hasInput: Boolean(input),
@@ -151,6 +161,20 @@ function autofillFields(customValues = {}) {
           });
         }
         break;
+      }
+    }
+    
+    // Also check for AI answers for non-basic fields
+    if (aiAnswers[labelText]) {
+      const input = findInputByLabel(label);
+      const isSupportedInput =
+        input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement;
+      const isTextualInput =
+        input instanceof HTMLTextAreaElement ||
+        ["text", "url", "email", "search", "tel", ""].includes(input?.type || "");
+      
+      if (isSupportedInput && isTextualInput) {
+        fillInput(input, aiAnswers[labelText]);
       }
     }
   }
@@ -210,20 +234,33 @@ function startObserver(customValues) {
   // Parse application URL from current page
   applicationUrl = window.location.href;
   
-  // Fetch AI answers first, then start filling
+  // First pass: fill only with AI answers (no defaults yet)
+  for (const retryDelayMs of RETRY_DELAYS_MS) {
+    const totalDelayMs = INITIAL_FILL_DELAY_MS + retryDelayMs;
+    window.setTimeout(() => {
+      log("scheduled AI-only fill fired", { totalDelayMs });
+      autofillFields(customValues, false);
+    }, totalDelayMs);
+  }
+  
+  // Fetch AI answers first, then fill with defaults after receiving them
   fetchAiAnswers(applicationUrl).then(() => {
+    log("AI answers received, scheduling default fill");
+    // After receiving AI answers, do another pass with defaults enabled
+    // to fill any remaining basic fields that weren't covered by AI
     for (const retryDelayMs of RETRY_DELAYS_MS) {
-      const totalDelayMs = INITIAL_FILL_DELAY_MS + retryDelayMs;
+      const totalDelayMs = INITIAL_FILL_DELAY_MS + retryDelayMs + 500;
       window.setTimeout(() => {
-        log("scheduled fill fired", { totalDelayMs });
-        autofillFields(customValues);
+        log("scheduled default fill fired", { totalDelayMs });
+        autofillFields(customValues, true);
       }, totalDelayMs);
     }
   });
 
   const observer = new MutationObserver(() => {
     log("mutation observed, rescanning");
-    autofillFields(customValues);
+    // On mutation, always use defaults since AI answers should already be loaded
+    autofillFields(customValues, true);
   });
 
   observer.observe(document.documentElement, {
