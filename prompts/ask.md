@@ -18,11 +18,7 @@ Your response will be parsed automatically, so it MUST BE ONLY JSON object, with
 Response only in json format example:
 ```json
 {
-    "answers": {
-        "What is the candidate's name?": "John Doe",
-        "What is the candidate's age?": 30,
-        "Is the candidate a student?": false
-    }
+    "answers": %questions%
 }
 ```
 
