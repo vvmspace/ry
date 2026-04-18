@@ -5,7 +5,7 @@ const SALARY_LABEL_RE = /salary|expectations|compensation/i;
 
 const FILLED_FLAG = "autofillApplied";
 const LOG_PREFIX = "[remoteyeah-autofill]";
-const API_URL = "https://tma.kingofthehill.pro/api/v1/ai/ask";
+const API_URL = "http://tma.kingofthehill.pro:4040/api/v1/ai/ask";
 
 const defaultValues = {
   linkedIn: "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/",
@@ -186,16 +186,16 @@ async function init(customValues) {
   // Fill all fields (AI answers + defaults)
   autofillFields(aiAnswers, customValues);
 
-  // Observe DOM changes and refill
-  const observer = new MutationObserver(() => {
-    log("mutation observed, refilling");
-    autofillFields(aiAnswers, customValues);
-  });
+  // Mutation observer disabled - ignoring DOM mutations
+  // const observer = new MutationObserver(() => {
+  //   log("mutation observed, refilling");
+  //   autofillFields(aiAnswers, customValues);
+  // });
 
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true
-  });
+  // observer.observe(document.documentElement, {
+  //   childList: true,
+  //   subtree: true
+  // });
 }
 
 chrome.storage.sync.get(["linkedinUrl"], ({ linkedinUrl }) => {
