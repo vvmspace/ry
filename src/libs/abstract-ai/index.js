@@ -39,7 +39,7 @@ class AbstractAI {
   async json(prompt, exampleOrSchema, models = 'gemma,gemini-2.5-flash', variables = {}) {
     let jsonPrompt = prompt;
     let schema = null;
-    const systemInstruction = 'You are a precise JSON extractor. Return ONLY valid JSON. No reasoning, no chatter, no markdown code blocks. Start your response with { and end with }.';
+    const systemInstruction = 'You are a precise JSON extractor. Return ONLY valid JSON. No reasoning, no chatter, no markdown code blocks. Your response will be parsed automatically. Start your response with { and end with }.';
 
     if (exampleOrSchema) {
       if (exampleOrSchema.type) {
