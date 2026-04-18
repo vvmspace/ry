@@ -1,49 +1,32 @@
-# Editor/IDE files
-.vscode/
+```
+# Dependencies
+node_modules/
 
-# Logs
+# Build artifacts
+dist/
+build/
+*.min.js
+*.bundle.js
+
+# Logs and temp files
 *.log
+*.tmp
 
-# Environment files
+# Environment
 .env
 .env.local
 *.env.*
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Dependencies
-node_modules/
-venv/
-.venv/
-pip-log.txt
-pipenv.lock
-
-# Build artifacts
-build/
-dist/
-*.egg-info/
+# Editors
+.vscode/
+.idea/
 
 # OS generated files
 .DS_Store
 Thumbs.db
 
-# Coverage reports
-.coverage
-htmlcov/
-coverage.xml
-
-# Testing
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
-
-# Temporary files
-*.tmp
-*.swp
-*~
-.DS_Store
-Thumbs.db
+tmp
+ud2
+userdir
+priority.json
+state.json
