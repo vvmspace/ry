@@ -87,8 +87,8 @@ async function handleAiAsk(req, res, _params, query) {
       .map(([q, hint]) => {
         const type =
           typeof hint === 'boolean' ? 'boolean' :
-          typeof hint === 'number'  ? 'number'  :
-          'string';
+            typeof hint === 'number' ? 'number' :
+              'string';
         return `- "${q}" (expected type: ${type})`;
       })
       .join('\n');
@@ -98,7 +98,7 @@ async function handleAiAsk(req, res, _params, query) {
     const filledPrompt = replaceVariables(promptTemplate, {
       cv: cvText,
       vacancy: vacancyText,
-      questions: questionsBlock,
+      questions: JSON.stringify(questions),
     });
 
     // 5. Build the expected result schema from the questions
