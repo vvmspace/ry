@@ -1,14 +1,38 @@
-```
-# Editor/IDE files
-.vscode/
+# Build outputs
+dist/
+build/
+*.min.js
+*.min.css
+*.bundle.js
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Environment files
+# Environment
 .env
 .env.local
-*.env.*
-```
+.env.*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# OS
+.DS_Store
+Thumbs.db
+
+# local files:
+tmp
+ud2
+userdir
+priority.json
+state.json
+node_modules
