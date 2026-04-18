@@ -181,8 +181,7 @@ class AbstractAI {
     }
 
     const data = await response.json();
-    console.log(data?.candidates?.[0]?.content?.parts);
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    return data?.candidates?.[0]?.content?.parts?.filter(p => !!p.thought)?.[0]?.text;
   }
 
   async callOpenRouter(modelName, prompt, systemInstruction, responseFormat) {
