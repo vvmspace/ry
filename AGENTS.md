@@ -255,6 +255,36 @@ PATCH /api/jobs/:_id
 
 { status: pending, saved, generated, started, applied, cancelled, expired }
 
+# POST /api/v1/ai/ask/, optional: /api/v1/ai/ask/?applicationUrl=%includes%
+
+```
+{
+  "questions": {
+    "What is your favotive cow?": "string",
+    "How old are you?": 100,
+    "Do you like AI?": true
+  },
+  "model_and_fallbacks_by_commas?": "string"
+}
+```
+
+1. Loads full_cv.md or full_cv.example.md if exists
+2. If applicationUrl is provided - find 1 job by url includes %applicationUrl% if exists and use its data.
+3. Use prompt from prompts/ask.md
+
+Endpoint returns aswers in json format:
+
+```
+{
+  "answers": {
+    "What is your favotive cow?": "string",
+    "How old are you?": 100,
+    "Do you like AI?": true
+  } 
+}
+```
+
+
 ## Frontend
 Nuxt.js, adaptive, dark mode, mobile first, same port as API.
 

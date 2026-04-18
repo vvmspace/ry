@@ -14,6 +14,7 @@ const routes = [
   ...require('./routes/stats'),
   ...require('./routes/metrics'),
   ...require('./routes/profiles'),
+  ...require('./routes/ai'),
   ...require('./routes/static'),
 ];
 
@@ -23,7 +24,7 @@ const routes = [
  */
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 }
