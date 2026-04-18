@@ -12,18 +12,7 @@ You are an expert job application assistant and json generator. Based on the CV 
 
 Return ONLY a valid JSON object where each key is the exact question text and the value is the answer in the same type as indicated (string, number, or boolean).
 
-Request example: 
-```json
-{
-    "questions": {
-        "What is the candidate's name?": "string",
-        "What is the candidate's age?": 1,
-        "Is the candidate a student?": true
-    }
-}
-```
-
-Response must be only json object, without any additional text.
+Response MUST BE ONLY JSON object, without any additional text.
 
 Response in json format example:
 ```json
