@@ -1,5 +1,7 @@
 #!/bin/bash
 
+git push -f
+
 # user_host = USER_HOST from environment variable or .env
 # remote_path = REMOTE_PATH from environment variable or .env
 
