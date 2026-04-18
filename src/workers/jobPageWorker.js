@@ -455,10 +455,15 @@ async function runJobPageWorker() {
 }
 
 if (require.main === module) {
+  const t0 = require('perf_hooks').performance.now();
+  console.log(`Job started at: ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(new Date())}`);
     runJobPageWorker().catch((err) => {
         console.error(err);
         process.exitCode = 1;
-    });
+    }).finally(() => {
+    const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(new Date());
+    console.log(`Job completed at: ${time} (Duration: ${((require('perf_hooks').performance.now() - t0) / 1000).toFixed(2)}s)`);
+  });
 }
 
 module.exports = {

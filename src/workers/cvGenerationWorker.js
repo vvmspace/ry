@@ -123,6 +123,17 @@ async function generateCvForJob(job, options = {}) {
   };
 
   const url = `${API_BASE}${GENERATE_CV_PATH}`;
+  
+  console.log("API Request:", JSON.stringify({
+    method: "POST",
+    url: url,
+    parameters: {
+      template: body.template,
+      model: body.model,
+      vacancy_text_preview: body.vacancy_text.substring(0, 150) + "..."
+    }
+  }, null, 2));
+
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -218,9 +229,14 @@ async function runCvGenerationWorker() {
 }
 
 if (require.main === module) {
+  const t0 = require('perf_hooks').performance.now();
+  console.log(`Job started at: ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(new Date())}`);
   runCvGenerationWorker().catch((err) => {
     console.error(err);
     process.exitCode = 1;
+  }).finally(() => {
+    const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(new Date());
+    console.log(`Job completed at: ${time} (Duration: ${((require('perf_hooks').performance.now() - t0) / 1000).toFixed(2)}s)`);
   });
 }
 

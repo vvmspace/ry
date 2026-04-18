@@ -42,26 +42,26 @@ module.exports = {
       script: "./src/workers/cvGenerationWorker.js",
       instances: 1,
       autorestart: true,
-      restart_delay: 120000,
+      restart_delay: 60000,
       watch: false,
       max_memory_restart: "1G",
       env: {
         NODE_ENV: "production",
       },
     },
-    {
-      name: "ry-links-fixer",
-      script: "./src/workers/linksFixerWorker.js",
-      instances: 1,
-      autorestart: true,
-      restart_delay: 120000,
-      watch: false,
-      max_memory_restart: "1G",
-      env: {
-        NODE_ENV: "production",
-        USER_DIR: "./ud2"
-      },
-    },
+    // {
+    //   name: "ry-links-fixer",
+    //   script: "./src/workers/linksFixerWorker.js",
+    //   instances: 1,
+    //   autorestart: true,
+    //   restart_delay: 120000,
+    //   watch: false,
+    //   max_memory_restart: "1G",
+    //   env: {
+    //     NODE_ENV: "production",
+    //     USER_DIR: "./ud2"
+    //   },
+    // },
     {
       name: "ry-match-rate",
       script: "./src/workers/matchRateWorker.js",
@@ -91,7 +91,7 @@ module.exports = {
       script: "./src/workers/coverLetterWorker.js",
       instances: 1,
       autorestart: true,
-      restart_delay: 60000,
+      restart_delay: 120000,
       watch: false,
       max_memory_restart: "1G",
       env: {
