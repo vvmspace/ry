@@ -76,8 +76,6 @@ async function handleAiAsk(req, res, _params, query) {
           job.companyName && `Company: ${job.companyName}`,
           job.salary && `Salary: ${job.salary}`,
           job.description && `\nDescription:\n${job.description}`,
-          job.greetingMessage && `\nGreeting Message:\n${job.greetingMessage}`,
-          job.whyAnswer && `\nWhy Answer:\n${job.whyAnswer}`,
         ].filter(Boolean).join('\n');
       }
     }
