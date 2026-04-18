@@ -4,12 +4,16 @@
   "version": "1.0.0",
   "description": "Autofills LinkedIn URL into inputs whose label mentions LinkedIn.",
   "permissions": [
-    "storage"
+    "storage",
+    "scripting"
   ],
   "host_permissions": [
     "https://jobs.ashbyhq.com/*",
     "https://tma.kingofthehill.pro/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "LinkedIn Autofill",
     "default_popup": "popup.html"
