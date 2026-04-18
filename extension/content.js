@@ -1,21 +1,23 @@
 const LINKEDIN_LABEL_RE = /linkedin/i;
 const PHONE_LABEL_RE = /telephone|phone/i;
-const PORTFOLIO_LABEL_RE = /portfolio|site/i;
+const PORTFOLIO_LABEL_RE = /portfolio|site|github/i;
 const SALARY_LABEL_RE = /salary|expectations|compensation/i;
 
 const FILLED_FLAG = "autofillApplied";
 const INITIAL_FILL_DELAY_MS = 2000;
 const RETRY_DELAYS_MS = [0, 300, 1000, 2000, 4000];
 const LOG_PREFIX = "[remoteyeah-autofill]";
+const API_URL = "https://tma.kingofthehill.pro/api/v1/ai/ask";
 
-const hashmap = {
-  "linkedIn": "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/",
-  "phone": "+37498330380",
-  "portfolio": "https://github.com/vvmspace/theproject",
-  "salary usd": "8000",
-  "salary eur": "7000",
-  "salary expectations": "84000-132000$/y"
+const defaultValues = {
+  linkedIn: "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/",
+  phone: "+37498330380",
+  portfolio: "https://github.com/vvmspace/theproject",
+  salaryExpectations: "84000-132000$/y"
 };
+
+let aiAnswers = {};
+let applicationUrl = "";
 
 function log(...args) {
   console.log(LOG_PREFIX, ...args);
@@ -116,12 +118,12 @@ function autofillFields(customValues = {}) {
   const labels = document.querySelectorAll("label");
   log("scan started", { labelsCount: labels.length });
 
-  const linkedinUrl = customValues.linkedinUrl || hashmap.linkedIn;
+  const linkedinUrl = customValues.linkedinUrl || defaultValues.linkedIn;
   const rules = [
-    { re: LINKEDIN_LABEL_RE, value: linkedinUrl },
-    { re: PHONE_LABEL_RE, value: hashmap.phone },
-    { re: PORTFOLIO_LABEL_RE, value: hashmap.portfolio },
-    { re: SALARY_LABEL_RE, value: hashmap["salary expectations"] }
+    { re: LINKEDIN_LABEL_RE, value: linkedinUrl, key: "linkedIn" },
+    { re: PHONE_LABEL_RE, value: defaultValues.phone, key: "phone" },
+    { re: PORTFOLIO_LABEL_RE, value: defaultValues.portfolio, key: "portfolio" },
+    { re: SALARY_LABEL_RE, value: defaultValues.salaryExpectations, key: "salaryExpectations" }
   ];
 
   for (const label of labels) {
@@ -138,7 +140,9 @@ function autofillFields(customValues = {}) {
           ["text", "url", "email", "search", "tel", ""].includes(input?.type || "");
 
         if (isSupportedInput && isTextualInput) {
-          fillInput(input, rule.value);
+          // Check if we have an AI answer for this label
+          let valueToFill = aiAnswers[labelText] || rule.value;
+          fillInput(input, valueToFill);
         } else {
           log("matching label found but suitable text input missing", {
             hasInput: Boolean(input),
@@ -152,15 +156,70 @@ function autofillFields(customValues = {}) {
   }
 }
 
+async function fetchAiAnswers(applicationUrl) {
+  log("fetching AI answers", { applicationUrl });
+  
+  // Extract questions from the page
+  const labels = document.querySelectorAll("label");
+  const questions = {};
+  
+  for (const label of labels) {
+    const labelText = (label.textContent || "").trim();
+    if (labelText) {
+      // Check if this is a question field (not basic info like LinkedIn, phone, etc.)
+      const isBasicField = 
+        LINKEDIN_LABEL_RE.test(labelText) ||
+        PHONE_LABEL_RE.test(labelText) ||
+        PORTFOLIO_LABEL_RE.test(labelText) ||
+        SALARY_LABEL_RE.test(labelText);
+      
+      if (!isBasicField) {
+        questions[labelText] = "string";
+      }
+    }
+  }
+  
+  if (Object.keys(questions).length === 0) {
+    log("no questions found to ask AI");
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}?applicationUrl=${encodeURIComponent(applicationUrl)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ questions })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    aiAnswers = await response.json();
+    log("AI answers received", { count: Object.keys(aiAnswers).length });
+  } catch (error) {
+    log("failed to fetch AI answers", { error: error.message });
+  }
+}
+
 function startObserver(customValues) {
   log("observer starting", { initialDelayMs: INITIAL_FILL_DELAY_MS });
-  for (const retryDelayMs of RETRY_DELAYS_MS) {
-    const totalDelayMs = INITIAL_FILL_DELAY_MS + retryDelayMs;
-    window.setTimeout(() => {
-      log("scheduled fill fired", { totalDelayMs });
-      autofillFields(customValues);
-    }, totalDelayMs);
-  }
+  
+  // Parse application URL from current page
+  applicationUrl = window.location.href;
+  
+  // Fetch AI answers first, then start filling
+  fetchAiAnswers(applicationUrl).then(() => {
+    for (const retryDelayMs of RETRY_DELAYS_MS) {
+      const totalDelayMs = INITIAL_FILL_DELAY_MS + retryDelayMs;
+      window.setTimeout(() => {
+        log("scheduled fill fired", { totalDelayMs });
+        autofillFields(customValues);
+      }, totalDelayMs);
+    }
+  });
 
   const observer = new MutationObserver(() => {
     log("mutation observed, rescanning");

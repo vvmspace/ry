@@ -1,10 +1,27 @@
-node_modules
-userdir
+```
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+*.min.js
+*.bundle.js
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
 .env
-ud2
-.vscode
-tmp
-state.json
-priority.json
-questions.json
-.idea
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+```
