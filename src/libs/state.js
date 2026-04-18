@@ -80,10 +80,10 @@ function allocateBrowser() {
 
   if (state.browser.active) {
     const lastUsageDate = new Date(state.browser.lastUsage);
-    const tenMinutes = 10 * 60 * 1000;
+    const minute = 1 * 60 * 1000;
 
-    if (now.getTime() - lastUsageDate.getTime() < tenMinutes) {
-      console.log(`[state] Browser is active (last used < 10 mins ago). Skipping.`);
+    if (now.getTime() - lastUsageDate.getTime() < minute) {
+      console.log(`[state] Browser is active (last used < 1 min ago). Skipping.`);
       return false;
     }
     console.log(`[state] Browser active lock expired. Reclaiming.`);
