@@ -95,6 +95,11 @@ async function handleAiAsk(req, res, _params, query) {
 
     // 4. Load prompt template and fill variables
     const promptTemplate = loadPromptTemplate();
+    const filledPrompt = replaceVariables(promptTemplate, {
+      cv: cvText,
+      vacancy: vacancyText,
+      questions: questionsBlock,
+    });
 
     // 5. Build the expected result schema from the questions
     const exampleResult = {};
@@ -103,11 +108,7 @@ async function handleAiAsk(req, res, _params, query) {
     }
 
     // 6. Call AI
-    const result = await ai.json(promptTemplate, exampleResult, models, {
-      cv: cvText,
-      vacancy: vacancyText,
-      questions: questionsBlock,
-    });
+    const result = await ai.json(filledPrompt, exampleResult, models);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ answers: result }));
@@ -137,6 +138,18 @@ function readBody(req) {
     });
     req.on('error', reject);
   });
+}
+
+/**
+ * Replace variables in template string.
+ */
+function replaceVariables(template, variables) {
+  let result = template;
+  for (const [key, value] of Object.entries(variables)) {
+    const regex = new RegExp(`%${key}%`, 'g');
+    result = result.replace(regex, value);
+  }
+  return result;
 }
 
 module.exports = { handleAiAsk };

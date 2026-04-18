@@ -56,45 +56,52 @@ class AbstractAI {
 
     const response = await this.ask(jsonPrompt, models, variables, systemInstruction, 'json', schema);
     try {
-      // 1. Initial trim
-      let cleaned = response.trim();
-
-      // 2. Remove markdown code blocks if they exist
-      cleaned = cleaned.replace(/^```(json)?/i, '').replace(/```$/i, '').trim();
-
-      // 3. Find the most likely JSON object or array
-      const startBracket = cleaned.indexOf('{');
-      const startSquare = cleaned.indexOf('[');
-      const endBracket = cleaned.lastIndexOf('}');
-      const endSquare = cleaned.lastIndexOf(']');
-
-      let start = -1;
-      let end = -1;
-
-      // If both {} and [] exist, pick the outer-most one
-      if (startBracket !== -1 && (startSquare === -1 || startBracket < startSquare)) {
-        start = startBracket;
-        end = endBracket;
-      } else if (startSquare !== -1) {
-        start = startSquare;
-        end = endSquare;
-      }
-
-      if (start !== -1 && end !== -1 && end >= start) {
-        cleaned = cleaned.substring(start, end + 1);
-      }
-
-      return JSON.parse(cleaned);
+      return this.parseJsonFromResponse(response);
     } catch (err) {
       console.error('[AbstractAI] Failed to parse JSON. Response was:', response);
-      // Fallback: try to find the match_rate or percentage directly if it's a simple result
-      const match = response.match(/(?:match_rate|match rate|rate)\D*(\d+)/i);
-      if (match) {
-        console.log('[AbstractAI] Fallback lenient extraction successful:', match[1]);
-        return { match_rate: parseInt(match[1], 10) };
-      }
       throw new Error('[AbstractAI] Response is not valid JSON');
     }
+  }
+
+  /**
+   * Extract and parse JSON from AI response text.
+   * Handles markdown code blocks, extra text before/after JSON, etc.
+   */
+  parseJsonFromResponse(response) {
+    if (!response || typeof response !== 'string') {
+      throw new Error('Empty or invalid response');
+    }
+
+    // 1. Initial trim
+    let cleaned = response.trim();
+
+    // 2. Remove markdown code blocks if they exist (```json ... ``` or ``` ... ```)
+    cleaned = cleaned.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    // 3. Find the most likely JSON object or array by locating balanced braces/brackets
+    const startBracket = cleaned.indexOf('{');
+    const startSquare = cleaned.indexOf('[');
+    const endBracket = cleaned.lastIndexOf('}');
+    const endSquare = cleaned.lastIndexOf(']');
+
+    let start = -1;
+    let end = -1;
+
+    // Prefer {} for objects, [] for arrays - pick the outermost valid pair
+    if (startBracket !== -1 && (startSquare === -1 || startBracket < startSquare)) {
+      start = startBracket;
+      end = endBracket;
+    } else if (startSquare !== -1) {
+      start = startSquare;
+      end = endSquare;
+    }
+
+    if (start !== -1 && end !== -1 && end > start) {
+      cleaned = cleaned.substring(start, end + 1);
+    }
+
+    // 4. Try to parse the extracted JSON
+    return JSON.parse(cleaned);
   }
 
   replaceVariables(template, variables) {
