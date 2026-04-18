@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
-const { shouldSkip, setLastTs } = require("../libs/state");
+const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser } = require("../libs/state");
 
 function parseSearchUrls(envValue) {
   const raw = envValue ?? process.env.REMOTEYEAH_SEARCH_URLS;
@@ -130,6 +130,12 @@ async function runJobsListWorker() {
 
   await connectMongo();
 
+  if (!allocateBrowser()) {
+    console.log("Browser in use, skipping...");
+    await mongoose.disconnect();
+    return;
+  }
+
   const browser = await puppeteer.launch({
     userDataDir: process.env.USER_DIR || "userdir",
     headless: true,
@@ -164,7 +170,10 @@ async function runJobsListWorker() {
     setLastTs('error', 'pending');
     throw err;
   } finally {
-    await browser.close();
+    if (typeof browser !== 'undefined') {
+      await browser.close().catch(() => {});
+      releaseBrowser();
+    }
     await mongoose.disconnect();
   }
 }

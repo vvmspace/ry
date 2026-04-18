@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
-const { shouldSkip, setLastTs } = require("../libs/state");
+const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser } = require("../libs/state");
 
 const DEFAULT_INTERVAL_SECONDS = 0;
 const SKIP_STATE_KEY = "fixed";
@@ -46,6 +46,11 @@ async function runLinksFixerWorker() {
     }
 
     console.log(`Fixing application link for job ${job.url}`);
+
+    if (!allocateBrowser()) {
+      console.log("Browser in use, skipping...");
+      return;
+    }
 
     browser = await puppeteer.launch({
       userDataDir: process.env.USER_DIR || "userdir",
@@ -110,7 +115,8 @@ async function runLinksFixerWorker() {
     setLastTs("error", SKIP_STATE_KEY);
   } finally {
     if (browser) {
-      await browser.close();
+      await browser.close().catch(() => {});
+      releaseBrowser();
     }
     await mongoose.disconnect();
   }

@@ -7,6 +7,7 @@ const path = require('path');
 
 const { connectMongo } = require('../db/mongoose');
 const JobPage = require('../models/jobPage');
+const { allocateBrowser, releaseBrowser } = require('../libs/state');
 const { b2b } = require('../../constants/text.constants');
 
 const QUESTIONS_PATH = path.resolve(process.cwd(), 'questions.json');
@@ -138,6 +139,12 @@ async function runAshbyApplyWorker() {
   const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
   const viewport = { width: randInt(1040, 1340), height: randInt(760, 900) };
   log(`Viewport: ${viewport.width}×${viewport.height}`);
+
+  if (!allocateBrowser()) {
+    log("Browser in use, skipping...");
+    await mongoose.disconnect();
+    return;
+  }
 
   const browser = await puppeteer.launch({
     userDataDir: process.env.USER_DIR || 'userdir',
@@ -448,7 +455,10 @@ async function runAshbyApplyWorker() {
 
   } finally {
     log('Closing browser...');
-    await browser.close();
+    if (typeof browser !== 'undefined') {
+      await browser.close().catch(() => {});
+      releaseBrowser();
+    }
     log('Disconnecting from MongoDB...');
     await mongoose.disconnect();
     log('Exited cleanly.');

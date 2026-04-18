@@ -217,6 +217,21 @@ order by count of filters then by updatedAt desc
 3. If response.status === 404 or content contains 'not found'/'no longer available'/'This job posting is closed and the position is probably filled.' case insensitive or redirects to "*?not_found=true" - saves status `expired`
 4. Updates updatedAt
 
+## Browser usage
+
+All workers what use browser should save to state.json:
+```json
+{
+  // ...
+  "browser": {
+    "active": true, // set true on start, false on exit
+    "lastUsage": "2022-01-01T00:00:00.000Z"
+  }
+}
+```
+If `browser.active` is true and `browser.lastUsage` is less than 10 minutes ago, then skip browser usage.
+
+
 ## API
 
 GET /api/v1/jobs

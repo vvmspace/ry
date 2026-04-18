@@ -70,4 +70,39 @@ function shouldSkip(successEnvKey, errorEnvKey, stateKey) {
   return false;
 }
 
-module.exports = { readState, writeState, setLastTs, shouldSkip };
+function allocateBrowser() {
+  const state = readState();
+  const now = new Date();
+
+  if (!state.browser) {
+    state.browser = { active: false, lastUsage: now.toISOString() };
+  }
+
+  if (state.browser.active) {
+    const lastUsageDate = new Date(state.browser.lastUsage);
+    const tenMinutes = 10 * 60 * 1000;
+
+    if (now.getTime() - lastUsageDate.getTime() < tenMinutes) {
+      console.log(`[state] Browser is active (last used < 10 mins ago). Skipping.`);
+      return false;
+    }
+    console.log(`[state] Browser active lock expired. Reclaiming.`);
+  }
+
+  state.browser.active = true;
+  state.browser.lastUsage = now.toISOString();
+  writeState(state);
+  return true;
+}
+
+function releaseBrowser() {
+  const state = readState();
+  if (!state.browser) {
+    state.browser = {};
+  }
+  state.browser.active = false;
+  state.browser.lastUsage = new Date().toISOString();
+  writeState(state);
+}
+
+module.exports = { readState, writeState, setLastTs, shouldSkip, allocateBrowser, releaseBrowser };

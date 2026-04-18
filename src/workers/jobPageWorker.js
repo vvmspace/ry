@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
-const { shouldSkip, setLastTs } = require("../libs/state");
+const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser } = require("../libs/state");
 const { checkUrlForExpiration, getCheckUrl } = require("./expirationWorker");
 
 const DEFAULT_APPLY_TIMEOUT_MS = 15000;
@@ -317,6 +317,14 @@ async function runJobPageWorker() {
     console.timeEnd(TIMER.DB_CONNECT);
 
     console.time(TIMER.BROWSER_LAUNCH);
+    if (!allocateBrowser()) {
+        console.log("Browser in use, skipping...");
+        console.timeEnd(TIMER.BROWSER_LAUNCH);
+        console.timeEnd(TIMER.WORKER);
+        await mongoose.disconnect();
+        return;
+    }
+
     const browser = await puppeteer.launch({
         userDataDir: process.env.USER_DIR || "userdir",
         headless: true, // we can run headless
@@ -444,7 +452,10 @@ async function runJobPageWorker() {
         setLastTs('error', 'saved');
     } finally {
         console.time(TIMER.BROWSER_CLOSE);
-        await browser.close();
+        if (browser) {
+            await browser.close().catch(() => {});
+            releaseBrowser();
+        }
         console.timeEnd(TIMER.BROWSER_CLOSE);
 
         console.time(TIMER.DB_DISCONNECT);
