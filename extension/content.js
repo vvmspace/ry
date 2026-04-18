@@ -6,7 +6,17 @@ const SALARY_LABEL_RE = /salary|expectations|compensation/i;
 const FILLED_FLAG = "autofillApplied";
 const LOG_PREFIX = "[remoteyeah-autofill]";
 const API_URL = "http://tma.kingofthehill.pro:4040/api/v1/ai/ask";
+const toSnakeCase = (str) => {
+  if (!str) return '';
 
+  return str
+    .trim()                                // trim
+    .toLowerCase()                         // toLowerCase
+    .replace(/[\s-]+/g, '_')               // replace spaces and hyphens with underscores
+    // replace special characters with empty string
+    .replace(/[^a-zA-Z0-9_]/g, '')
+    .replace(/^-+|-+$/g, '');              // remove leading/trailing hyphens
+};
 const defaultValues = {
   linkedIn: "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/",
   phone: "+37498330380",
@@ -83,6 +93,8 @@ function isTextualInput(input) {
 }
 
 function autofillFields(values, customValues = {}) {
+
+  console.log("values", values);
   const labels = document.querySelectorAll("label");
   const linkedinUrl = customValues.linkedinUrl || defaultValues.linkedIn;
 
@@ -90,7 +102,7 @@ function autofillFields(values, customValues = {}) {
     const labelText = (label.textContent || "").trim();
     if (!labelText) continue;
 
-    let valueToFill = values[labelText];
+    let valueToFill = values[toSnakeCase(labelText)];
 
     // Apply defaults for basic fields if no AI answer
     if (!valueToFill) {
@@ -124,17 +136,7 @@ async function fetchAiAnswers(applicationId) {
   const questions = {};
 
 
-  const toSnakeCase = (str) => {
-    if (!str) return '';
 
-    return str
-      .trim()                                // trim
-      .toLowerCase()                         // toLowerCase
-      .replace(/[\s-]+/g, '_')               // replace spaces and hyphens with underscores
-      // replace special characters with empty string
-      .replace(/[^a-zA-Z0-9_]/g, '')
-      .replace(/^-+|-+$/g, '');              // remove leading/trailing hyphens
-  };
   for (const label of labels) {
     const labelText = (label.textContent || "").trim();
     if (!labelText) continue;
@@ -204,7 +206,7 @@ async function init(customValues) {
   aiAnswers = await fetchAiAnswers(applicationId);
 
   // Fill all fields (AI answers + defaults)
-  autofillFields(aiAnswers, customValues);
+  autofillFields(aiAnswers.answers.answers, customValues);
 
   // Mutation observer disabled - ignoring DOM mutations
   // const observer = new MutationObserver(() => {

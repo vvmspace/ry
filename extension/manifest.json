@@ -21,7 +21,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://jobs.ashbyhq.com/*"
+        "https://jobs.ashbyhq.com/*",
+        "https://apply.workable.com/*"
       ],
       "js": [
         "content.js"
