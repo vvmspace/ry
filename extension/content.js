@@ -78,8 +78,20 @@ function findInputByLabel(label) {
   }
 
   const fieldEntry = label.closest(".ashby-application-form-field-entry");
+  if (fieldEntry) {
+    return fieldEntry.querySelector("input, textarea");
+  }
+
+  // Workable: look for textarea/input by aria-labelledby or within the same parent structure
+  const labelId = label.querySelector("[id]")?.id;
+  if (labelId) {
+    const inputById = document.querySelector(`[aria-labelledby="${labelId}"]`);
+    if (inputById) {
+      return inputById;
+    }
+  }
+
   return (
-    fieldEntry?.querySelector("input, textarea") ||
     label.parentElement?.querySelector("input, textarea") ||
     label.querySelector("input, textarea")
   );
@@ -126,6 +138,22 @@ function autofillFields(values, customValues = {}) {
       }
     }
   }
+
+  // Workable: additionally try to fill inputs by data-ui attribute matching question keys
+  const workableInputs = document.querySelectorAll("textarea[data-ui], input[data-ui]");
+  for (const input of workableInputs) {
+    if (input.dataset[FILLED_FLAG] === "true") {
+      continue;
+    }
+    if (input.value && input.value.trim().length > 0) {
+      continue;
+    }
+
+    const dataUi = input.getAttribute("data-ui");
+    if (dataUi && values[toSnakeCase(dataUi)]) {
+      fillInput(input, values[toSnakeCase(dataUi)]);
+    }
+  }
 }
 
 async function fetchAiAnswers(applicationId) {
@@ -155,6 +183,42 @@ async function fetchAiAnswers(applicationId) {
 
     if (!isBasicField && !isIgnored) {
       questions[toSnakeCase(labelText)] = labelText;
+    }
+  }
+
+  // Workable: additionally extract questions from textarea/input elements with data-ui attribute
+  const workableInputs = document.querySelectorAll("textarea[data-ui], input[data-ui]");
+  for (const input of workableInputs) {
+    const dataUi = input.getAttribute("data-ui");
+    if (!dataUi) continue;
+
+    // Try to find the associated label via aria-labelledby
+    const labelId = input.getAttribute("aria-labelledby");
+    let labelText = "";
+    
+    if (labelId) {
+      const labelEl = document.getElementById(labelId);
+      if (labelEl) {
+        labelText = (labelEl.textContent || "").trim();
+      }
+    }
+
+    // If no label found via aria-labelledby, use data-ui as fallback key
+    if (!labelText) {
+      labelText = dataUi;
+    }
+
+    // Skip basic fields and ignored patterns
+    const isBasicField =
+      LINKEDIN_LABEL_RE.test(labelText) ||
+      PHONE_LABEL_RE.test(labelText) ||
+      PORTFOLIO_LABEL_RE.test(labelText) ||
+      SALARY_LABEL_RE.test(labelText);
+
+    const isIgnored = ['Name', 'Yes', 'Email', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
+
+    if (!isBasicField && !isIgnored) {
+      questions[toSnakeCase(dataUi)] = labelText;
     }
   }
 
