@@ -24,13 +24,16 @@ Request example:
 ```
 
 Response must be only json object, without any additional text.
+
 Response in json format example:
-`{
+```json
+{
     "answers": {
         "What is the candidate's name?": "John Doe",
         "What is the candidate's age?": 30,
         "Is the candidate a student?": false
     }
-}`
+}
+```
 
 Response:
