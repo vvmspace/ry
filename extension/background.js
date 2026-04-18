@@ -3,7 +3,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'FETCH_AI_ANSWERS') {
     const { applicationUrl, questions } = request.data;
     
-    fetch(`https://tma.kingofthehill.pro/api/v1/ai/ask?applicationUrl=${encodeURIComponent(applicationUrl)}`, {
+    fetch(`http://tma.kingofthehill.pro:4040/api/v1/ai/ask?applicationUrl=${encodeURIComponent(applicationUrl)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
