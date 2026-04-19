@@ -5,6 +5,17 @@ const SALARY_LABEL_RE = /salary|expectations|compensation/i;
 const FIRST_NAME_LABEL_RE = /first name/i;
 const LAST_NAME_LABEL_RE = /last name/i;
 
+const isBasicField = (labelText) =>
+  [
+    LINKEDIN_LABEL_RE,
+    PHONE_LABEL_RE,
+    PORTFOLIO_LABEL_RE,
+    // SALARY_LABEL_RE,
+    FIRST_NAME_LABEL_RE,
+    LAST_NAME_LABEL_RE,
+  ].some(re => re.test(labelText));
+const isIgnored = (labelText) => ['Yes', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
+
 const FILLED_FLAG = "autofillApplied";
 const LOG_PREFIX = "[remoteyeah-autofill]";
 const API_URL = "http://tma.kingofthehill.pro:4040/api/v1/ai/ask";
@@ -15,8 +26,7 @@ const toSnakeCase = (str) => {
     .trim()                                // trim
     .toLowerCase()                         // toLowerCase
     .replace(/[\s-]+/g, '_')               // replace spaces and hyphens with underscores
-    // replace special characters with empty string
-    .replace(/[^a-zA-Z0-9_]/g, '')
+    .replace(/[^a-zA-Z0-9_]/g, '')         // replace special characters with empty string
     .replace(/^-+|-+$/g, '');              // remove leading/trailing hyphens
 };
 const defaultValues = {
@@ -43,30 +53,39 @@ function dispatchInputEvents(input) {
 }
 
 function setNativeValue(input, value) {
+  console.log("setNativeValue", input, value);
   const prototype =
     input instanceof HTMLTextAreaElement
       ? window.HTMLTextAreaElement.prototype
       : window.HTMLInputElement.prototype;
+
+  console.log("prototype", prototype);
   const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
 
+  console.log("descriptor", descriptor);
   if (descriptor?.set) {
     try {
       descriptor.set.call(input, value);
+      console.log("set value", input, value);
     } catch (error) {
       log("failed to set value", { id: input.id, name: input.name, error });
-      // input.value = value;
+      input.value = value;
     }
   } else {
+    console.log("setting value directly", input, value);
     input.value = value;
   }
 }
 
 function fillInput(input, value) {
+  console.log("fillInput", input, value);
   if (!input || !value || input.dataset[FILLED_FLAG] === "true") {
+    console.log("skipping fillInput: input is null or value is null or already filled", input, value);
     return;
   }
 
   if (input.value && input.value.trim().length > 0) {
+    console.log("skipping fillInput: value already exists", input, value);
     return;
   }
 
@@ -116,7 +135,7 @@ function findInputByLabel(label) {
 }
 
 function isTextualInput(input) {
-  if (input.classList.find(cls => cls.includes('select'))) {
+  if ([...input.classList].some(cls => cls.includes('select'))) {
     return false;
   }
   return (
@@ -129,7 +148,6 @@ function autofillFields(values, customValues = {}) {
 
   console.log("values", values);
   const labels = document.querySelectorAll("label");
-  const linkedinUrl = customValues.linkedinUrl || defaultValues.linkedIn;
 
   // Build a map of snake_case label text -> label element for lookup
   const labelTextMap = new Map();
@@ -147,8 +165,10 @@ function autofillFields(values, customValues = {}) {
       const input = findInputByLabel(label);
       if (input instanceof HTMLInputElement && isTextualInput(input)) {
         fillInput(input, value);
+        console.log("filled input", input);
       } else if (input instanceof HTMLTextAreaElement) {
         fillInput(input, value);
+        console.log("filled textarea", input);
       }
     }
   }
@@ -158,18 +178,34 @@ function autofillFields(values, customValues = {}) {
     const labelText = (label.textContent || "").trim();
     if (!labelText) continue;
 
-    let valueToFill = values[toSnakeCase(labelText)];
+    let valueToFill = values[toSnakeCase(labelText)] || values[labelText];
 
     // Apply defaults for basic fields if no AI answer
     if (!valueToFill) {
-      if (LINKEDIN_LABEL_RE.test(labelText)) {
-        valueToFill = linkedinUrl;
-      } else if (PHONE_LABEL_RE.test(labelText)) {
-        valueToFill = defaultValues.phone;
-      } else if (PORTFOLIO_LABEL_RE.test(labelText)) {
-        valueToFill = defaultValues.portfolio;
-      } else if (SALARY_LABEL_RE.test(labelText)) {
-        valueToFill = defaultValues.salaryExpectations;
+
+      let value = [
+        {
+          regex: FIRST_NAME_LABEL_RE,
+          value: defaultValues.firstName
+        }, {
+          regex: LAST_NAME_LABEL_RE,
+          value: defaultValues.lastName
+        }, {
+          regex: LINKEDIN_LABEL_RE,
+          value: defaultValues.linkedIn
+        }, {
+          regex: PHONE_LABEL_RE,
+          value: defaultValues.phone
+        }, {
+          regex: PORTFOLIO_LABEL_RE,
+          value: defaultValues.portfolio
+        }, {
+          regex: SALARY_LABEL_RE,
+          value: defaultValues.salaryExpectations
+        }].find(v => v.regex.test(labelText))?.value;
+
+      if (value) {
+        valueToFill = value;
       }
     }
 
@@ -252,24 +288,7 @@ async function fetchAiAnswers(applicationId) {
     const labelText = (label.textContent || "").trim();
     if (!labelText) continue;
 
-    // Skip basic fields - only send actual questions to AI
-    const isBasicField =
-      [
-        LINKEDIN_LABEL_RE,
-        PHONE_LABEL_RE,
-        PORTFOLIO_LABEL_RE,
-        SALARY_LABEL_RE,
-        FIRST_NAME_LABEL_RE,
-        LAST_NAME_LABEL_RE,
-      ].some(re => re.test(labelText));
-    ;
-
-
-    const isIgnored = ['Name', 'Yes', 'Email', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
-
-    console.log("labelText", labelText, "isIgnored", isIgnored);
-
-    if (!isBasicField && !isIgnored) {
+    if (!isBasicField(labelText) && !isIgnored(labelText)) {
       const snakeKey = toSnakeCase(labelText);
       questions[snakeKey] = labelText;
       labelMap.set(snakeKey, labelText);
@@ -299,20 +318,8 @@ async function fetchAiAnswers(applicationId) {
     }
 
     // Skip basic fields and ignored patterns
-    const isBasicField =
-      [
-        LINKEDIN_LABEL_RE,
-        PHONE_LABEL_RE,
-        PORTFOLIO_LABEL_RE,
-        SALARY_LABEL_RE,
-        FIRST_NAME_LABEL_RE,
-        LAST_NAME_LABEL_RE,
-      ].some(re => re.test(labelText));
-    ;
 
-    const isIgnored = ['Name', 'Yes', 'Email', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
-
-    if (!isBasicField && !isIgnored) {
+    if (!isBasicField(labelText) && !isIgnored(labelText)) {
       const snakeKey = toSnakeCase(labelText);
       questions[snakeKey] = labelText;
       labelMap.set(snakeKey, labelText);
@@ -330,20 +337,7 @@ async function fetchAiAnswers(applicationId) {
     if (!labelText) continue;
 
     // Skip basic fields and ignored patterns
-    const isBasicField =
-      [
-        LINKEDIN_LABEL_RE,
-        PHONE_LABEL_RE,
-        PORTFOLIO_LABEL_RE,
-        SALARY_LABEL_RE,
-        FIRST_NAME_LABEL_RE,
-        LAST_NAME_LABEL_RE,
-      ].some(re => re.test(labelText));
-    ;
-
-    const isIgnored = ['Yes', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
-
-    if (!isBasicField && !isIgnored) {
+    if (!isBasicField(labelText) && !isIgnored(labelText)) {
       const snakeKey = toSnakeCase(labelText);
       questions[snakeKey] = labelText;
       labelMap.set(snakeKey, labelText);
@@ -392,8 +386,10 @@ async function init(customValues) {
   const idMatch = fullUrl.match(/\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\//i);
   const applicationId = idMatch ? idMatch[1] : fullUrl;
   log("application ID extracted", { applicationId });
+  console.log("customValues", customValues);
 
   await new Promise(resolve => setTimeout(resolve, 5000));
+  autofillFields(customValues);
   // Fetch AI answers
   aiAnswers = await fetchAiAnswers(applicationId);
 
