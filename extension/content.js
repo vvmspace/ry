@@ -2,6 +2,8 @@ const LINKEDIN_LABEL_RE = /linkedin/i;
 const PHONE_LABEL_RE = /telephone|phone/i;
 const PORTFOLIO_LABEL_RE = /portfolio|site|github/i;
 const SALARY_LABEL_RE = /salary|expectations|compensation/i;
+const FIRST_NAME_LABEL_RE = /first name/i;
+const LAST_NAME_LABEL_RE = /last name/i;
 
 const FILLED_FLAG = "autofillApplied";
 const LOG_PREFIX = "[remoteyeah-autofill]";
@@ -21,6 +23,8 @@ const defaultValues = {
   linkedIn: "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/",
   phone: "+37498330380",
   portfolio: "https://github.com/vvmspace/theproject",
+  firstName: "Vladimir",
+  lastName: "Myagdeev",
   // salaryExpectations: "From 3600$, comfortable 5500$, perfect 7000$"
 };
 
@@ -112,6 +116,9 @@ function findInputByLabel(label) {
 }
 
 function isTextualInput(input) {
+  if (input.classList.find(cls => cls.includes('select'))) {
+    return false;
+  }
   return (
     input instanceof HTMLTextAreaElement ||
     ["text", "url", "email", "search", "tel", ""].includes(input?.type || "")
@@ -247,11 +254,15 @@ async function fetchAiAnswers(applicationId) {
 
     // Skip basic fields - only send actual questions to AI
     const isBasicField =
-      LINKEDIN_LABEL_RE.test(labelText)
-      || PHONE_LABEL_RE.test(labelText)
-      || PORTFOLIO_LABEL_RE.test(labelText)
-      // || SALARY_LABEL_RE.test(labelText)
-      ;
+      [
+        LINKEDIN_LABEL_RE,
+        PHONE_LABEL_RE,
+        PORTFOLIO_LABEL_RE,
+        SALARY_LABEL_RE,
+        FIRST_NAME_LABEL_RE,
+        LAST_NAME_LABEL_RE,
+      ].some(re => re.test(labelText));
+    ;
 
 
     const isIgnored = ['Name', 'Yes', 'Email', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
@@ -289,11 +300,15 @@ async function fetchAiAnswers(applicationId) {
 
     // Skip basic fields and ignored patterns
     const isBasicField =
-      LINKEDIN_LABEL_RE.test(labelText)
-      || PHONE_LABEL_RE.test(labelText)
-      || PORTFOLIO_LABEL_RE.test(labelText)
-      // || SALARY_LABEL_RE.test(labelText)
-      ;
+      [
+        LINKEDIN_LABEL_RE,
+        PHONE_LABEL_RE,
+        PORTFOLIO_LABEL_RE,
+        SALARY_LABEL_RE,
+        FIRST_NAME_LABEL_RE,
+        LAST_NAME_LABEL_RE,
+      ].some(re => re.test(labelText));
+    ;
 
     const isIgnored = ['Name', 'Yes', 'Email', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
 
@@ -316,13 +331,17 @@ async function fetchAiAnswers(applicationId) {
 
     // Skip basic fields and ignored patterns
     const isBasicField =
-      LINKEDIN_LABEL_RE.test(labelText)
-      || PHONE_LABEL_RE.test(labelText)
-      || PORTFOLIO_LABEL_RE.test(labelText)
-      // || SALARY_LABEL_RE.test(labelText)
-      ;
+      [
+        LINKEDIN_LABEL_RE,
+        PHONE_LABEL_RE,
+        PORTFOLIO_LABEL_RE,
+        SALARY_LABEL_RE,
+        FIRST_NAME_LABEL_RE,
+        LAST_NAME_LABEL_RE,
+      ].some(re => re.test(labelText));
+    ;
 
-    const isIgnored = ['Name', 'Yes', 'Email', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
+    const isIgnored = ['Yes', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
 
     if (!isBasicField && !isIgnored) {
       const snakeKey = toSnakeCase(labelText);
