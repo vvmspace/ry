@@ -12,15 +12,12 @@ Return ONLY a valid JSON object where each key is the exact question text and th
 
 Use single quotes for JSON values.
 
-Key: "question text" (as is)
-Value: "answer text"
-
 Salary suqestions: concrete numbers, of like "From 3600$, comfortable 5500$, perfect 7000$", depends on question and vacancy.
 
 Example:
 {
     "answers": {
-        "question text": "answer text"
+        "question_text": "answer text"
     }
 }
 
