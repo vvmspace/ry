@@ -23,7 +23,8 @@
       "matches": [
         "https://jobs.ashbyhq.com/*",
         "https://apply.workable.com/*",
-        "https://jobs.lever.co/*"
+        "https://jobs.lever.co/*",
+        "https://job-boards.greenhouse.io/*"
       ],
       "js": [
         "content.js"

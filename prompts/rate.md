@@ -17,7 +17,9 @@ LOCATION RULES:
 1. If location is specified and timezone is different from UTC+4 for 5 or more hours, the match_rate MUST be decreased by 5%.
 2. If the job description or locations specify a mandatory on-site or hybrid presence in any city OTHER than Yerevan, Armenia, the match_rate MUST be decreased by 10%.
 3. If relocation is required, the match_rate MUST be decreased by 20%.
-4. Ignore location rules for Web3 companies.
+4. +3% for Armenia, Georgia, Serbia, Montenegro and UAE.
+5. +2% for B2B contracts.
+6. Ignore location rules for Web3 companies.
 
 Response must be only json object, without any additional text.
 Response in json format example:

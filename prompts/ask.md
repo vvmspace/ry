@@ -15,6 +15,8 @@ Use single quotes for JSON values.
 Key: "question text" (as is)
 Value: "answer text"
 
+Salary suqestions: concrete numbers, of like "From 3600$, comfortable 5500$, perfect 7000$", depends on question and vacancy.
+
 Example:
 {
     "answers": {
