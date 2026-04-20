@@ -66,6 +66,7 @@ const pagination = ref<JobsResponse>({
 
 const liveStats = ref<Partial<Record<JobStatus, number>>>({});
 let statsSource: EventSource | null = null;
+const startOnClick = ref(false);
 
 const INTERVALS: { value: string; label: string; ms: number }[] = [
   { value: "0", label: "Off", ms: 0 },
@@ -322,7 +323,7 @@ async function updateStatus(id: string, status: string) {
 }
 
 async function handleVacancyClick(job: Job, event: MouseEvent) {
-  if (job.status === "generated") {
+  if (job.status === "generated" && startOnClick.value) {
     event.preventDefault();
     await updateStatus(job._id, "started");
     // Open the link after updating status
@@ -620,6 +621,10 @@ onUnmounted(() => {
         <label>
           Position
           <input v-model="titleFilter" type="text" placeholder="min 3 chars" class="filter-input" />
+        </label>
+        <label class="checkbox-label">
+          <input v-model="startOnClick" type="checkbox" />
+          Start on click
         </label>
       </section>
 
@@ -1172,6 +1177,22 @@ onUnmounted(() => {
   border-radius: 999px;
   padding: 0.8rem 1rem;
   font-size: 0.95rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: #3dd9b4;
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
 }
 
 .filter-chip {
