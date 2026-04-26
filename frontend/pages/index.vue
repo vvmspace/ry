@@ -53,7 +53,7 @@ const domainFilter = ref("");
 const companyFilter = ref("");
 const titleFilter = ref("");
 const everywhereFilter = ref("");
-const pageSizeOptions = [10, 25, 50, 100];
+const pageSizeOptions = [10, 25, 50, 100, 500, 1000];
 const pagination = ref<JobsResponse>({
   items: [],
   page: 1,

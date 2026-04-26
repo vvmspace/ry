@@ -54,7 +54,7 @@ function parsePositiveInt(value, fallback, { min = 1, max = Number.MAX_SAFE_INTE
 async function listJobs(queryParams) {
   const filter = buildJobsFilter(queryParams);
   const page = parsePositiveInt(queryParams.page, 1, { min: 1, max: 100000 });
-  const limit = parsePositiveInt(queryParams.limit, 100, { min: 1, max: 100 });
+  const limit = parsePositiveInt(queryParams.limit, 100, { min: 1, max: 1000 });
   const skip = (page - 1) * limit;
   const [result] = await JobPage.aggregate([
     { $match: filter },
