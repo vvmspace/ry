@@ -99,6 +99,15 @@ Job page contains:
 
 in case of success - saves current datetime to state.json: state.last.success.saved, in case of error of no pending to state.last.error.saved
 
+## CV urls fix worker
+
+Take N=1000 documents: (!!cvUrl && (!cvHtmlUrl || !cvPdfUrl)) Order by createdAt asc (not updated_at, because we can update it in this worker)
+
+For each document:
+- If cvHtmlUrl is empty then replace .pdf with .html from cvPdfUrl or cvUrl
+- If cvPdfUrl is not set and cvUrl is not empty - set cvPdfUrl = cvUrl
+- save document to db and continue to the next one
+
 ## Links fixer worker
 
 <context>Some links was not parsed properly, when browser wasn't logged in to remoteyeah.com, as result we have `applicationUrl` with url like `https://remoteyeah.com/login?redirect_url=https%3A%2F%2Fremoteyeah.com%2Fjobs%2Fremote-senior-frontend-software-engineer-reactjs-and-nextjs-mindera`.</context>
@@ -204,8 +213,8 @@ order by count of filters then by updatedAt desc
 }
 ```
 4. Gets greeting_message, match_rate, email, why_answer and top_tech_and_skills from response
-5. Gets pdf_url from response
-6. cv_url=`https://tma.kingofthehill.pro${pdf_url}`
+5. Gets pdf_url, html_url, from response
+6. cvPdfUrl=`https://tma.kingofthehill.pro${pdf_url}`, cvHtmlUrl=`https://tma.kingofthehill.pro${html_url}`, cvJsonUrl=`https://tma.kingofthehill.pro${json_url}`
 7. saves with status `generated`
 8. in case of success - saves current datetime to state.json: state.last.success.generated, in case of error to state.last.error.generated
 
@@ -311,7 +320,8 @@ Fields:
 - status: select box with statuses, call update API on change and fetch vacancies list
 - link to vacancy (applicationUrl), set 'started' status on click
 - copy: icons buttons: greeting_message, cover_letter, email, why_answer if provided
-- link to CV: PDF icon, download on click
+- link to download CV: PDF icon, download on click, equals to `cvUrl || cvPdfUrl`
+- link to HTML CV: HTML icon, view in new tab, equals to `cvHtmlUrl` if provided
 
 ## Deployment: github on push githook from local machine
 

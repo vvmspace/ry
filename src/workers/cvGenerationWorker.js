@@ -169,8 +169,9 @@ async function generateCvForJob(job, options = {}) {
     typeof data.why_answer === "string" && data.why_answer.trim()
       ? data.why_answer.trim()
       : "";
+  const jsonUrl = data.json_url;
 
-  return { cvUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, data };
+  return { cvUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, jsonUrl, data };
 }
 
 async function runCvGenerationWorker() {
@@ -200,7 +201,7 @@ async function runCvGenerationWorker() {
   console.log(`Generating CV for job: ${job.url}`);
 
   try {
-    const { cvUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer } = await generateCvForJob(job);
+    const { cvUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, jsonUrl } = await generateCvForJob(job);
     if (!cvUrl) {
       throw new Error("API did not return pdf_url");
     }
@@ -213,6 +214,9 @@ async function runCvGenerationWorker() {
     job.email = email;
     job.topTechAndSkills = topTechAndSkills;
     job.whyAnswer = whyAnswer;
+    if (jsonUrl) {
+      job.jsonUrl = buildCvUrl(jsonUrl);
+    }
     job.status = "generated";
     await job.save();
     console.log(`CV generated: ${cvUrl} | matchRate: ${matchRate ?? "n/a"}`);
