@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type JobStatus = "pending" | "saved" | "generated" | "started" | "applied" | "cancelled" | "error" | "expired";
+type JobStatus = "pending" | "saved" | "generated" | "started" | "applied" | "screening" | "interview" | "cancelled" | "error" | "expired";
 
 type Job = {
   _id: string;
@@ -78,7 +78,7 @@ const INTERVALS: { value: string; label: string; ms: number }[] = [
   { value: "1800", label: "30m", ms: 1_800_000 },
 ];
 
-const STATUSES: JobStatus[] = ["pending", "saved", "generated", "started", "applied", "cancelled", "error", "expired"];
+const STATUSES: JobStatus[] = ["pending", "saved", "generated", "started", "applied", "screening", "interview", "cancelled", "error", "expired"];
 
 const statusCounts = computed(() => {
   const counts: Record<JobStatus, number> = {
@@ -87,6 +87,8 @@ const statusCounts = computed(() => {
     generated: 0,
     started: 0,
     applied: 0,
+    screening: 0,
+    interview: 0,
     cancelled: 0,
     error: 0,
     expired: 0,
@@ -1521,6 +1523,8 @@ onUnmounted(() => {
 .stats-badge--generated .stats-badge-count { background: rgba(74, 222, 128, 0.15); color: #86efac; }
 .stats-badge--started .stats-badge-count { background: rgba(167, 139, 250, 0.15); color: #c4b5fd; }
 .stats-badge--applied .stats-badge-count { background: rgba(61, 217, 180, 0.15); color: #3dd9b4; }
+.stats-badge--screening .stats-badge-count { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.stats-badge--interview .stats-badge-count { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
 .stats-badge--cancelled .stats-badge-count { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
 .stats-badge--error .stats-badge-count { background: rgba(248, 113, 113, 0.15); color: #fca5a5; }
 

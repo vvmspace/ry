@@ -35,7 +35,7 @@ async function runLinksFixerWorker() {
   try {
     const job = await JobPage.findOne({
       applicationUrl: { $regex: LOGIN_HOST, $options: "i" },
-      status: { $nin: ["applied", "expired", "error"] },
+      status: { $nin: ["applied", "screening", "interview", "expired", "error"] },
     })
       .sort({ matchRate: -1, createdAt: -1 });
 

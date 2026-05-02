@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
 
-const EXCLUDED_STATUSES = ["expired", "applied", "error"];
+const EXCLUDED_STATUSES = ["expired", "applied", "screening", "interview", "error"];
 
 function isExpirationSignal(httpStatus, bodyText) {
   if (httpStatus === 404) {

@@ -4,7 +4,7 @@ const promClient = require('prom-client');
 const { eventBus, JOB_STATUS_CHANGED } = require('../events/jobEvents');
 const JobPage = require('../models/jobPage');
 
-const RATE_STATUSES = ['generated', 'applied', 'cancelled', 'expired'];
+const RATE_STATUSES = ['generated', 'applied', 'screening', 'interview', 'cancelled', 'expired'];
 const RATE_BUCKETS = [
   { label: '95+',   min: 95,  max: Infinity },
   { label: '85-95', min: 85,  max: 95 },

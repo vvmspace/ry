@@ -11,7 +11,7 @@ const jobPageSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "saved", "generated", "started", "applied", "cancelled", "error", "expired"],
+      enum: ["pending", "saved", "generated", "started", "applied", "screening", "interview", "cancelled", "error", "expired"],
       required: true,
       default: "pending",
       index: true,

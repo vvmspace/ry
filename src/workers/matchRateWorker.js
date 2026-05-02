@@ -45,7 +45,7 @@ async function runMatchRateWorker() {
     // 3. Find 1 job with status not 'pending' and not 'expired', ordered by oldest first
     const job = await JobPage.findOne({
       status: {
-        $nin: ['pending', 'expired', 'applied', 'error', 'saved', 'cancelled']
+        $nin: ['pending', 'expired', 'applied', 'screening', 'interview', 'error', 'saved', 'cancelled']
       }
     }).sort({ updatedAt: 1 });
 

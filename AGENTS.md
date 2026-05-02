@@ -237,7 +237,7 @@ If `browser.active` is true and `browser.lastUsage` is less than 10 minutes ago,
 GET /api/v1/jobs
 
 list jobs ordered by:
-- status: started -> generated -> error -> saved -> pending -> applied -> cancelled -> expired
+- status: interview -> screening -> started -> generated -> error -> saved -> pending -> applied -> cancelled -> expired
 - matchRate desc
 - updatedAt desc
 
@@ -253,7 +253,7 @@ optional query params:
 
 PATCH /api/jobs/:_id
 
-{ status: pending, saved, generated, started, applied, cancelled, expired }
+{ status: pending, saved, generated, started, applied, screening, interview, cancelled, expired }
 
 # POST /api/v1/ai/ask/, optional: /api/v1/ai/ask/?applicationUrl=%includes%
 

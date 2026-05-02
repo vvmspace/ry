@@ -2,14 +2,16 @@ const JobPage = require("../models/jobPage");
 const { eventBus, JOB_STATUS_CHANGED } = require("../events/jobEvents");
 
 const STATUS_SORT_ORDER = {
-  started: 0,
-  generated: 1,
-  error: 2,
-  saved: 3,
-  pending: 4,
-  applied: 5,
-  cancelled: 6,
-  expired: 7,
+  interview: 0,
+  screening: 1,
+  started: 2,
+  generated: 3,
+  error: 4,
+  saved: 5,
+  pending: 6,
+  applied: 7,
+  cancelled: 8,
+  expired: 9,
 };
 
 function escapeRegex(s) {
@@ -111,7 +113,7 @@ async function listJobs(queryParams) {
   };
 }
 
-const ALLOWED_STATUSES = ["pending", "saved", "generated", "started", "applied", "cancelled", "error", "expired"];
+const ALLOWED_STATUSES = ["pending", "saved", "generated", "started", "applied", "screening", "interview", "cancelled", "error", "expired"];
 
 async function updateJobById(id, body) {
   const status = body?.status;
