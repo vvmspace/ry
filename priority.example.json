@@ -1,0 +1,6 @@
+{
+    "generate": {
+        "domain": ["ashbyhq.com"],
+        "description": ["nestjs"]
+    }
+}

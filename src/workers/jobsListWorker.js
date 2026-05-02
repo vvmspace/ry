@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
+const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser } = require("../libs/state");
 
 function parseSearchUrls(envValue) {
   const raw = envValue ?? process.env.REMOTEYEAH_SEARCH_URLS;
@@ -94,20 +95,33 @@ async function saveJobLinks(urls) {
     }
   }
   console.log(`Saved ${saved} new jobs, skipped ${skipped} existing jobs`);
+  return { saved, skipped };
 }
 
 async function parseSearchPage(page, searchUrl) {
-  await page.goto(searchUrl, { waitUntil: "networkidle0" });
+  try {
+    await page.goto(searchUrl, { waitUntil: "networkidle0", timeout: 30000 });
+  } catch (err) {
+    if (err.name === "TimeoutError") {
+      console.warn(`Timeout loading ${searchUrl}, trying to parse whatever loaded...`);
+    } else {
+      throw err;
+    }
+  }
 
   const html = await page.content();
   const links = extractJobLinksFromHtml(html, searchUrl);
+  const { saved, skipped } = await saveJobLinks(links);
 
-  await saveJobLinks(links);
-
-  return links.length;
+  return { found: links.length, saved, skipped };
 }
 
 async function runJobsListWorker() {
+  console.log('\x1b[36m\x1b[1m🔍  JOBS LIST WORKER\x1b[0m');
+  if (shouldSkip('PENDING_SUCCESS_INTERVAL', 'PENDING_ERROR_INTERVAL', 'pending')) {
+    process.exit(0);
+  }
+
   const searchUrls = parseSearchUrls();
   if (searchUrls.length === 0) {
     console.log("No search urls configured, exiting");
@@ -115,19 +129,12 @@ async function runJobsListWorker() {
   }
 
   await connectMongo();
-  console.log("Connected to MongoDB successfully");
-  console.log("Database name:", mongoose.connection.db.databaseName);
-  
-  // Test database write
-  const testUrl = `https://test-${Date.now()}.com`;
-  const testResult = await JobPage.updateOne(
-    { url: testUrl },
-    { $setOnInsert: { status: "pending" } },
-    { upsert: true }
-  );
-  console.log("Test write result:", testResult);
-  await JobPage.deleteOne({ url: testUrl });
-  console.log("Database write test passed");
+
+  if (!allocateBrowser()) {
+    console.log("Browser in use, skipping...");
+    await mongoose.disconnect();
+    return;
+  }
 
   const browser = await puppeteer.launch({
     userDataDir: process.env.USER_DIR || "userdir",
@@ -142,36 +149,44 @@ async function runJobsListWorker() {
   try {
     const page = (await browser.pages())[0] || (await browser.newPage());
 
-    page.on("console", (msg) => {
-      const type = msg.type();
-      const text = msg.text();
-
-      if (type === "error") {
-        console.error("[browser console][error]", text);
-      } else {
-        console.log("[browser console]", type, text);
-      }
-    });
-
-    let total = 0;
+    let totalFound = 0;
+    let totalSaved = 0;
 
     for (const url of searchUrls) {
-      const count = await parseSearchPage(page, url);
-      console.log(`Parsed ${count} jobs from ${url}`);
-      total += count;
+      console.log(`Parsing ${url} ...`);
+      const { found, saved } = await parseSearchPage(page, url);
+      console.log(`${url}: found=${found}, saved=${saved}`);
+      totalFound += found;
+      totalSaved += saved;
     }
 
-    console.log(`Total jobs found: ${total}`);
+    console.log(`Total found: ${totalFound}, total saved: ${totalSaved}`);
+    if (totalSaved === 0) {
+      setLastTs('error', 'pending');
+    } else {
+      setLastTs('success', 'pending');
+    }
+  } catch (err) {
+    setLastTs('error', 'pending');
+    throw err;
   } finally {
-    await browser.close();
+    if (typeof browser !== 'undefined') {
+      await browser.close().catch(() => {});
+      releaseBrowser();
+    }
     await mongoose.disconnect();
   }
 }
 
 if (require.main === module) {
+  const t0 = require('perf_hooks').performance.now();
+  console.log(`Job started at: ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(new Date())}`);
   runJobsListWorker().catch((err) => {
     console.error(err);
     process.exitCode = 1;
+  }).finally(() => {
+    const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(new Date());
+    console.log(`Job completed at: ${time} (Duration: ${((require('perf_hooks').performance.now() - t0) / 1000).toFixed(2)}s)`);
   });
 }
 

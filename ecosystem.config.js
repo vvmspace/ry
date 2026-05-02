@@ -4,6 +4,7 @@ module.exports = {
       name: "ry-api",
       script: "./src/api/server.js",
       instances: 1,
+      exec_mode: "fork",
       autorestart: true,
       watch: false,
       max_memory_restart: "1G",
@@ -39,6 +40,55 @@ module.exports = {
     {
       name: "ry-cv-generate",
       script: "./src/workers/cvGenerationWorker.js",
+      instances: 1,
+      autorestart: true,
+      restart_delay: 60000,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "production",
+      },
+    },
+    // {
+    //   name: "ry-links-fixer",
+    //   script: "./src/workers/linksFixerWorker.js",
+    //   instances: 1,
+    //   autorestart: true,
+    //   restart_delay: 120000,
+    //   watch: false,
+    //   max_memory_restart: "1G",
+    //   env: {
+    //     NODE_ENV: "production",
+    //     USER_DIR: "./ud2"
+    //   },
+    // },
+    {
+      name: "ry-match-rate",
+      script: "./src/workers/matchRateWorker.js",
+      instances: 1,
+      autorestart: true,
+      restart_delay: 60000,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "production",
+      },
+    },
+    {
+      name: "ry-expiration",
+      script: "./src/workers/expirationWorker.js",
+      instances: 1,
+      autorestart: true,
+      restart_delay: 120000,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "production",
+      },
+    },
+    {
+      name: "ry-cover-letter",
+      script: "./src/workers/coverLetterWorker.js",
       instances: 1,
       autorestart: true,
       restart_delay: 120000,

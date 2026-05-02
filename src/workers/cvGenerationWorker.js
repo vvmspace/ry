@@ -2,10 +2,69 @@ require("dotenv").config();
 
 const mongoose = require("mongoose");
 
+const fs = require('fs');
+const path = require('path');
+
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
+const { shouldSkip, setLastTs } = require("../libs/state");
 
-const API_BASE = "https://tma.kingofthehill.pro";
+const PRIORITY_PATH = path.resolve(process.cwd(), 'priority.json');
+
+function loadPriority(section) {
+  try {
+    const raw = fs.readFileSync(PRIORITY_PATH, 'utf8');
+    return JSON.parse(raw)?.[section] ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Build aggregate pipeline that picks 1 `saved` job ordered by:
+ * 1. count of priority filter matches (desc)
+ * 2. matchRate (desc)
+ * 3. createdAt (desc)
+ */
+async function findNextSavedJob(priority) {
+  // Build $addFields expressions: one $cond per filter string per field
+  const scoreExprs = [];
+
+  for (const [field, values] of Object.entries(priority)) {
+    if (!Array.isArray(values)) continue;
+    for (const val of values) {
+      if (!val) continue;
+      const regex = val.toLowerCase();
+      scoreExprs.push({
+        $cond: [
+          { $regexMatch: { input: { $toLower: { $ifNull: [`$${field}`, ''] } }, regex } },
+          1,
+          0,
+        ],
+      });
+    }
+  }
+
+  if (!scoreExprs.length) {
+    // No priority rules — simple findOne
+    return JobPage.findOne({ status: 'saved' }).sort({ matchRate: -1, createdAt: -1 });
+  }
+
+  const priorityScore = scoreExprs.length === 1
+    ? scoreExprs[0]
+    : { $add: scoreExprs };
+
+  const [doc] = await JobPage.aggregate([
+    { $match: { status: 'saved' } },
+    { $addFields: { _priorityScore: priorityScore } },
+    { $sort: { _priorityScore: -1, matchRate: -1, createdAt: -1 } },
+    { $limit: 1 },
+  ]);
+
+  return doc ? JobPage.findById(doc._id) : null;
+}
+
+const API_BASE = process.env.GENERATE_CV_API_BASE || "https://tma.kingofthehill.pro";
 const GENERATE_CV_PATH = "/api/v1/generate_cv";
 
 function buildVacancyText(job) {
@@ -59,11 +118,22 @@ async function generateCvForJob(job, options = {}) {
 
   const body = {
     vacancy_text: vacancyText,
-    template,
+    template: 'light_calendly',
     model,
   };
 
   const url = `${API_BASE}${GENERATE_CV_PATH}`;
+
+  console.log("API Request:", JSON.stringify({
+    method: "POST",
+    url: url,
+    parameters: {
+      template: body.template,
+      model: body.model,
+      vacancy_text_preview: body.vacancy_text.substring(0, 150) + "..."
+    }
+  }, null, 2));
+
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -104,11 +174,26 @@ async function generateCvForJob(job, options = {}) {
 }
 
 async function runCvGenerationWorker() {
+  console.log('\x1b[35m\x1b[1m🤖  CV GENERATION WORKER\x1b[0m');
+  if (shouldSkip('GENERATED_SUCCESS_INTERVAL', 'GENERATED_ERROR_INTERVAL', 'generated')) {
+    process.exit(0);
+  }
+
   await connectMongo();
 
-  const job = await JobPage.findOne({ status: "saved" });
+  let job;
+  try {
+    const priority = loadPriority('generate');
+    job = await findNextSavedJob(priority);
+  } catch (err) {
+    console.error("Failed to fetch job from DB:", err);
+    setLastTs('error', 'generated');
+    throw err;
+  }
+
   if (!job) {
     console.log("No saved jobs found. Exiting.");
+    setLastTs('error', 'generated');
     return;
   }
 
@@ -122,7 +207,9 @@ async function runCvGenerationWorker() {
 
     job.cvUrl = cvUrl;
     job.greetingMessage = greetingMessage;
-    job.matchRate = matchRate;
+    if (job.matchRate === undefined || job.matchRate === null) {
+      job.matchRate = matchRate;
+    }
     job.email = email;
     job.topTechAndSkills = topTechAndSkills;
     job.whyAnswer = whyAnswer;
@@ -131,10 +218,10 @@ async function runCvGenerationWorker() {
     console.log(`CV generated: ${cvUrl} | matchRate: ${matchRate ?? "n/a"}`);
     console.log(formatLogTime());
     console.log("");
+    setLastTs('success', 'generated');
   } catch (err) {
     console.error("CV generation failed:", err);
-    // job.status = "error";
-    // await job.save();
+    setLastTs('error', 'generated');
     throw err;
   } finally {
     await mongoose.disconnect();
@@ -142,9 +229,14 @@ async function runCvGenerationWorker() {
 }
 
 if (require.main === module) {
+  const t0 = require('perf_hooks').performance.now();
+  console.log(`Job started at: ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(new Date())}`);
   runCvGenerationWorker().catch((err) => {
     console.error(err);
     process.exitCode = 1;
+  }).finally(() => {
+    const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(new Date());
+    console.log(`Job completed at: ${time} (Duration: ${((require('perf_hooks').performance.now() - t0) / 1000).toFixed(2)}s)`);
   });
 }
 

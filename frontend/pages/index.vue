@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type JobStatus = "pending" | "saved" | "generated" | "started" | "applied" | "cancelled" | "error";
+type JobStatus = "pending" | "saved" | "generated" | "started" | "applied" | "screening" | "interview" | "cancelled" | "error" | "expired";
 
 type Job = {
   _id: string;
@@ -16,6 +16,18 @@ type Job = {
   topTechAndSkills?: string;
   whyAnswer?: string;
   matchRate?: number | null;
+  createdAt?: string | Date;
+  coverLetter?: string;
+};
+
+type JobsResponse = {
+  items: Job[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasPrevPage: boolean;
+  hasNextPage: boolean;
 };
 
 const config = useRuntimeConfig();
@@ -27,6 +39,7 @@ const apiBase = ref(
 
 const linkedinProfile = ref("");
 const githubProfile = ref("");
+const b2bText = ref("");
 const blinkingButton = ref<string | null>(null);
 
 const jobs = ref<Job[]>([]);
@@ -34,10 +47,25 @@ const loading = ref(true);
 const error = ref("");
 const statusFilter = ref<JobStatus | "">("");
 const refreshInterval = ref("0");
+const page = ref(1);
+const limit = ref(100);
 const domainFilter = ref("");
 const companyFilter = ref("");
 const titleFilter = ref("");
 const everywhereFilter = ref("");
+const pageSizeOptions = [10, 25, 50, 100, 500, 1000];
+const pagination = ref<JobsResponse>({
+  items: [],
+  page: 1,
+  limit: 100,
+  total: 0,
+  totalPages: 0,
+  hasPrevPage: false,
+  hasNextPage: false,
+});
+
+const liveStats = ref<Partial<Record<JobStatus, number>>>({});
+let statsSource: EventSource | null = null;
 
 const INTERVALS: { value: string; label: string; ms: number }[] = [
   { value: "0", label: "Off", ms: 0 },
@@ -50,7 +78,7 @@ const INTERVALS: { value: string; label: string; ms: number }[] = [
   { value: "1800", label: "30m", ms: 1_800_000 },
 ];
 
-const STATUSES: JobStatus[] = ["pending", "saved", "generated", "started", "applied", "cancelled", "error"];
+const STATUSES: JobStatus[] = ["pending", "saved", "generated", "started", "applied", "screening", "interview", "cancelled", "error", "expired"];
 
 const statusCounts = computed(() => {
   const counts: Record<JobStatus, number> = {
@@ -59,8 +87,11 @@ const statusCounts = computed(() => {
     generated: 0,
     started: 0,
     applied: 0,
+    screening: 0,
+    interview: 0,
     cancelled: 0,
     error: 0,
+    expired: 0,
   };
 
   for (const job of jobs.value) {
@@ -70,7 +101,17 @@ const statusCounts = computed(() => {
   return counts;
 });
 
-const totalJobs = computed(() => jobs.value.length);
+const totalJobs = computed(() => pagination.value.total);
+const currentPage = computed(() => pagination.value.page);
+const totalPages = computed(() => pagination.value.totalPages);
+const visibleFrom = computed(() => {
+  if (!jobs.value.length) return 0;
+  return (currentPage.value - 1) * pagination.value.limit + 1;
+});
+const visibleTo = computed(() => {
+  if (!jobs.value.length) return 0;
+  return visibleFrom.value + jobs.value.length - 1;
+});
 
 function normalizeFilterValue(value: string) {
   const normalized = value.trim().toLowerCase();
@@ -160,7 +201,7 @@ function getCvDownloadUrl(job: Job) {
     base = window.location.origin;
   }
   
-  return `${base}/api/jobs/${job._id}/cv`;
+  return `${base}/api/v1/jobs/${job._id}/cv`;
 }
 
 function getCvFileName(job: Job) {
@@ -173,6 +214,13 @@ function getCvFileName(job: Job) {
 
 function formatMatchRate(value?: number | null) {
   return typeof value === "number" && Number.isFinite(value) ? `${value}%` : "";
+}
+
+function formatDate(value?: string | number | Date) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("ru-RU");
 }
 
 function getMatchRateClass(value?: number | null) {
@@ -193,6 +241,8 @@ async function fetchJobs() {
   error.value = "";
   const params = new URLSearchParams();
   if (statusFilter.value) params.set("status", statusFilter.value);
+  params.set("page", String(page.value));
+  params.set("limit", String(limit.value));
 
   const base = apiBase.value.replace(/\/$/, "");
   const url = `${base}/api/v1/jobs${params.toString() ? `?${params.toString()}` : ""}`;
@@ -200,10 +250,46 @@ async function fetchJobs() {
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    jobs.value = await res.json();
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      jobs.value = data;
+      pagination.value = {
+        items: data,
+        page: 1,
+        limit: data.length || limit.value,
+        total: data.length,
+        totalPages: data.length ? 1 : 0,
+        hasPrevPage: false,
+        hasNextPage: false,
+      };
+      page.value = 1;
+    } else {
+      const paged = data as JobsResponse;
+      jobs.value = Array.isArray(paged.items) ? paged.items : [];
+      pagination.value = {
+        items: jobs.value,
+        page: paged.page || page.value,
+        limit: paged.limit || limit.value,
+        total: paged.total || 0,
+        totalPages: paged.totalPages || 0,
+        hasPrevPage: Boolean(paged.hasPrevPage),
+        hasNextPage: Boolean(paged.hasNextPage),
+      };
+      page.value = pagination.value.page;
+      limit.value = pagination.value.limit;
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Failed to load jobs";
     jobs.value = [];
+    pagination.value = {
+      items: [],
+      page: 1,
+      limit: limit.value,
+      total: 0,
+      totalPages: 0,
+      hasPrevPage: false,
+      hasNextPage: false,
+    };
   } finally {
     loading.value = false;
   }
@@ -214,10 +300,18 @@ function refreshJobs() {
   void fetchJobs();
 }
 
+function goToPage(nextPage: number) {
+  const maxPage = Math.max(1, pagination.value.totalPages || 1);
+  const safePage = Math.min(Math.max(1, nextPage), maxPage);
+  if (safePage === page.value) return;
+  page.value = safePage;
+  refreshJobs();
+}
+
 async function updateStatus(id: string, status: string) {
   try {
     const base = apiBase.value.replace(/\/$/, "");
-    const res = await fetch(`${base}/api/jobs/${id}`, {
+    const res = await fetch(`${base}/api/v1/jobs/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -298,6 +392,11 @@ async function copyWhyAnswer(job: Job) {
   await copyWithBlink(job.whyAnswer, `why-${job._id}`);
 }
 
+async function copyCoverLetter(job: Job) {
+  if (!job.coverLetter) return;
+  await copyWithBlink(job.coverLetter, `cover-letter-${job._id}`);
+}
+
 async function fetchProfiles() {
   try {
     const base = apiBase.value.replace(/\/$/, "");
@@ -306,6 +405,7 @@ async function fetchProfiles() {
       const data = await res.json();
       linkedinProfile.value = data.linkedin || "";
       githubProfile.value = data.github || "";
+      b2bText.value = data.b2b || "";
     }
   } catch (e) {
     // Silently fail - profiles are optional
@@ -327,10 +427,28 @@ watch(refreshInterval, (val) => {
 });
 
 watch(statusFilter, () => {
+  page.value = 1;
+  void fetchJobs();
+});
+
+watch(limit, () => {
+  page.value = 1;
   void fetchJobs();
 });
 
 onMounted(() => {
+  const sseBase = apiBase.value.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
+  statsSource = new EventSource(`${sseBase}/api/v1/stats/stream`);
+  statsSource.onmessage = (e: MessageEvent) => {
+    try {
+      Object.assign(liveStats.value, JSON.parse(e.data));
+    } catch {}
+  };
+  statsSource.onerror = () => {
+    statsSource?.close();
+    statsSource = null;
+  };
+
   void fetchJobs();
   void fetchProfiles();
 
@@ -343,6 +461,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  statsSource?.close();
+  statsSource = null;
   if (intervalId) clearInterval(intervalId);
 });
 </script>
@@ -359,7 +479,7 @@ onUnmounted(() => {
           <h1>Vacancies</h1>
           <p class="hero-copy">Generated CVs stay pinned at the top. Filter fast, update status inline, and open the application page directly.</p>
           
-          <div v-if="linkedinProfile || githubProfile" class="profile-links">
+          <div v-if="linkedinProfile || githubProfile || b2bText" class="profile-links">
             <button
               v-if="linkedinProfile"
               type="button"
@@ -392,6 +512,32 @@ onUnmounted(() => {
               </svg>
               GitHub
             </button>
+            <button
+              v-if="b2bText"
+              type="button"
+              class="profile-btn"
+              aria-label="Copy B2B text"
+              title="Copy B2B text"
+              @click="copyToClipboard(b2bText)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M9 9a2 2 0 0 1 2-2h8v10a2 2 0 0 1-2 2h-8z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linejoin="round"
+                  stroke-width="1.8"
+                />
+                <path
+                  d="M15 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linejoin="round"
+                  stroke-width="1.8"
+                />
+              </svg>
+              B2B
+            </button>
           </div>
         </div>
         <div class="toolbar">
@@ -414,7 +560,29 @@ onUnmounted(() => {
               </option>
             </select>
           </label>
+          <label>
+            Per page
+            <select v-model.number="limit">
+              <option v-for="size in pageSizeOptions" :key="size" :value="size">
+                {{ size }}
+              </option>
+            </select>
+          </label>
         </div>
+      </section>
+
+      <section class="stats-widget" aria-label="Live job counts">
+        <button
+          v-for="status in STATUSES"
+          :key="status"
+          class="stats-badge"
+          :class="[`stats-badge--${status}`, { active: statusFilter === status }]"
+          type="button"
+          @click="toggleStatusFilter(status)"
+        >
+          <span class="stats-badge-label">{{ status }}</span>
+          <span class="stats-badge-count">{{ liveStats[status] ?? statusCounts[status] }}</span>
+        </button>
       </section>
 
       <section class="status-filters" aria-label="Status filters">
@@ -461,6 +629,19 @@ onUnmounted(() => {
       <p v-else-if="loading" class="loading">Loading…</p>
 
       <template v-else>
+        <section class="pagination-bar" aria-label="Pagination controls">
+          <p class="pagination-meta">
+            {{ visibleFrom }}-{{ visibleTo }} of {{ totalJobs }}
+          </p>
+          <div class="pagination-buttons">
+            <button type="button" class="pagination-btn" :disabled="!pagination.hasPrevPage" @click="goToPage(1)">First</button>
+            <button type="button" class="pagination-btn" :disabled="!pagination.hasPrevPage" @click="goToPage(currentPage - 1)">Prev</button>
+            <span class="pagination-page">Page {{ currentPage }} / {{ totalPages || 1 }}</span>
+            <button type="button" class="pagination-btn" :disabled="!pagination.hasNextPage" @click="goToPage(currentPage + 1)">Next</button>
+            <button type="button" class="pagination-btn" :disabled="!pagination.hasNextPage" @click="goToPage(totalPages || 1)">Last</button>
+          </div>
+        </section>
+
         <div class="table-wrap">
           <div class="jobs-table">
             <div class="jobs-head">
@@ -499,8 +680,9 @@ onUnmounted(() => {
               <div>
                 <span>{{ job.salary || "—" }}</span>
               </div>
-              <div>
+              <div class="domain-value">
                 <span>{{ getTopLevelDomain(job.domain) || "—" }}</span>
+                <small v-if="job.createdAt" class="domain-date text-muted">{{ formatDate(job.createdAt) }}</small>
               </div>
               <div>
                 <a
@@ -538,16 +720,17 @@ onUnmounted(() => {
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
-                      d="M9 9a2 2 0 0 1 2-2h8v10a2 2 0 0 1-2 2h-8z"
+                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
                       fill="none"
                       stroke="currentColor"
                       stroke-linejoin="round"
                       stroke-width="1.8"
                     />
                     <path
-                      d="M15 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"
+                      d="m22 6-10 7L2 6"
                       fill="none"
                       stroke="currentColor"
+                      stroke-linecap="round"
                       stroke-linejoin="round"
                       stroke-width="1.8"
                     />
@@ -563,21 +746,8 @@ onUnmounted(() => {
                   @click="copyEmail(job)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-linejoin="round"
-                      stroke-width="1.8"
-                    />
-                    <path
-                      d="m22 6-10 7L2 6"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="1.8"
-                    />
+                    <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                    <path d="M16 12a4 4 0 0 1 4 4v1a1 1 0 0 0 2 0v-1a8 8 0 1 0-8 8h1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
                   </svg>
                 </button>
                 <button
@@ -607,7 +777,34 @@ onUnmounted(() => {
                     />
                   </svg>
                 </button>
-                <span v-if="!job.greetingMessage && !job.email && !job.whyAnswer" class="text-muted">—</span>
+                <button
+                  v-if="job.coverLetter"
+                  type="button"
+                  class="icon-button action-link"
+                  :class="{ blink: blinkingButton === `cover-letter-${job._id}` }"
+                  aria-label="Copy cover letter"
+                  title="Copy cover letter"
+                  @click="copyCoverLetter(job)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </button>
+                <span v-if="!job.greetingMessage && !job.email && !job.whyAnswer && !job.coverLetter" class="text-muted">—</span>
               </div>
               <div>
                 <a
@@ -679,7 +876,10 @@ onUnmounted(() => {
 
             <div class="row">
               <span class="label">Domain</span>
-              <span>{{ getTopLevelDomain(job.domain) || "—" }}</span>
+              <div class="domain-value">
+                <span>{{ getTopLevelDomain(job.domain) || "—" }}</span>
+                <small v-if="job.createdAt" class="domain-date text-muted">{{ formatDate(job.createdAt) }}</small>
+              </div>
             </div>
 
             <div class="row">
@@ -747,21 +947,8 @@ onUnmounted(() => {
                   @click="copyEmail(job)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-linejoin="round"
-                      stroke-width="1.8"
-                    />
-                    <path
-                      d="m22 6-10 7L2 6"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="1.8"
-                    />
+                    <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                    <path d="M16 12a4 4 0 0 1 4 4v1a1 1 0 0 0 2 0v-1a8 8 0 1 0-8 8h1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
                   </svg>
                 </button>
                 <button
@@ -791,7 +978,34 @@ onUnmounted(() => {
                     />
                   </svg>
                 </button>
-                <span v-if="!job.greetingMessage && !job.email && !job.whyAnswer" class="text-muted">—</span>
+                <button
+                  v-if="job.coverLetter"
+                  type="button"
+                  class="icon-button action-link"
+                  :class="{ blink: blinkingButton === `cover-letter-${job._id}` }"
+                  aria-label="Copy cover letter"
+                  title="Copy cover letter"
+                  @click="copyCoverLetter(job)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </button>
+                <span v-if="!job.greetingMessage && !job.email && !job.whyAnswer && !job.coverLetter" class="text-muted">—</span>
               </div>
             </div>
 
@@ -992,6 +1206,39 @@ onUnmounted(() => {
   overflow-x: auto;
 }
 
+.pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pagination-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.pagination-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-btn {
+  padding: 0.5rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.pagination-page {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
 .jobs-table {
   display: grid;
   gap: 0.75rem;
@@ -1060,6 +1307,19 @@ onUnmounted(() => {
 .jobs-row select {
   width: 100%;
   min-width: 0;
+}
+
+.domain-value {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: flex-start;
+}
+
+.domain-date {
+  font-size: 0.72rem;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
 }
 
 .jobs-row .icon-button,
@@ -1214,5 +1474,64 @@ onUnmounted(() => {
   min-height: 0;
   padding: 0;
   background: transparent;
+}
+
+.stats-widget {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.stats-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stats-badge.active,
+.stats-badge:hover {
+  border-color: rgba(125, 211, 252, 0.4);
+  background: rgba(125, 211, 252, 0.1);
+  color: var(--text);
+}
+
+.stats-badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(7, 17, 27, 0.2);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.stats-badge--pending .stats-badge-count { background: rgba(250, 204, 21, 0.15); color: #fde68a; }
+.stats-badge--saved .stats-badge-count { background: rgba(125, 211, 252, 0.15); color: #7dd3fc; }
+.stats-badge--generated .stats-badge-count { background: rgba(74, 222, 128, 0.15); color: #86efac; }
+.stats-badge--started .stats-badge-count { background: rgba(167, 139, 250, 0.15); color: #c4b5fd; }
+.stats-badge--applied .stats-badge-count { background: rgba(61, 217, 180, 0.15); color: #3dd9b4; }
+.stats-badge--screening .stats-badge-count { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.stats-badge--interview .stats-badge-count { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
+.stats-badge--cancelled .stats-badge-count { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
+.stats-badge--error .stats-badge-count { background: rgba(248, 113, 113, 0.15); color: #fca5a5; }
+
+@media (max-width: 767px) {
+  .pagination-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

@@ -11,7 +11,13 @@
     "show": "node ./src/show.js",
     "jobs:list": "node ./src/workers/jobsListWorker.js",
     "jobs:parse": "node ./src/workers/jobPageWorker.js",
+    "jobs:expire": "node ./src/workers/expirationWorker.js",
+    "links:fix": "node ./src/workers/linksFixerWorker.js",
+    "jobs:rate": "node ./src/workers/matchRateWorker.js",
+    "jobs:cover-letter": "node ./src/workers/coverLetterWorker.js",
     "cv:generate": "node ./src/workers/cvGenerationWorker.js",
+    "ashby:apply": "node ./src/workers/ashbyApplyWorker.js",
+    "ashby:reset": "node ./src/workers/ashbyResetWorker.js",
     "prestart": "npm run frontend:generate",
     "start": "node ./src/api/server.js",
     "pm2": "npx pm2 start ecosystem.config.js",
@@ -33,9 +39,11 @@
     "cheerio": "^1.2.0",
     "dotenv": "^16.5.0",
     "mongoose": "^9.2.4",
+    "prom-client": "^15.1.3",
     "puppeteer": "^24.38.0"
   },
   "devDependencies": {
+    "fast-check": "^3.23.2",
     "husky": "^9.1.7"
   },
   "husky": {

@@ -1,5 +1,38 @@
-node_modules
-userdir
+# Build outputs
+dist/
+build/
+*.min.js
+*.min.css
+*.bundle.js
+
+# Environment
 .env
+.env.local
+.env.*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# OS
+.DS_Store
+Thumbs.db
+
+# local files:
+tmp
 ud2
-.vscode
+userdir
+priority.json
+state.json
+node_modules

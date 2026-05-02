@@ -10,18 +10,42 @@ echo "🔄 Starting update process..."
 # Discard local changes and pull latest
 echo "📥 Pulling latest code..."
 git checkout .
+OLD_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
 git pull
+NEW_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
 
 # Install backend dependencies
 echo "📦 Installing backend dependencies..."
 npm install
 
+# Build abstractai abstraction layer
+if [ -d "cv_builder/abstractai" ]; then
+    echo "🏗️  Building abstractai..."
+    cd cv_builder/abstractai
+    npm install
+    npm run build
+    cd ../..
+fi
+
+# Check if frontend needs to be built
+if [ "$OLD_HEAD" != "$NEW_HEAD" ] && git diff --name-only $OLD_HEAD $NEW_HEAD | grep -q '^frontend/'; then
+    BUILD_FRONTEND=true
+elif [ ! -d "frontend/.output/public" ]; then
+    BUILD_FRONTEND=true
+else
+    BUILD_FRONTEND=false
+fi
+
 # Build frontend
-echo "🏗️  Building frontend..."
-cd frontend
-npm install
-npm run generate
-cd ..
+if [ "$BUILD_FRONTEND" = true ]; then
+    echo "🏗️  Building frontend..."
+    cd frontend
+    npm install
+    npm run generate
+    cd ..
+else
+    echo "⏭️  Frontend unchanged, skipping build..."
+fi
 
 # Restart PM2 processes
 echo "🔄 Restarting services..."

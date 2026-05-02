@@ -1,0 +1,128 @@
+{
+  "uid": "remoteyeah-jobs",
+  "title": "RemoteYeah Jobs",
+  "schemaVersion": 38,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Status Transitions Rate",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(job_status_transitions_total[5m])",
+          "legendFormat": "{{status}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Current Jobs by Status",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "job_status_current_total",
+          "legendFormat": "{{status}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 3,
+      "type": "barchart",
+      "title": "Match Rate Buckets — generated",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "job_match_rate_bucket{status=\"generated\"}", "legendFormat": "{{bucket}}", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": {
+        "xField": "Time",
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "id": 4,
+      "type": "barchart",
+      "title": "Match Rate Buckets — applied",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "job_match_rate_bucket{status=\"applied\"}", "legendFormat": "{{bucket}}", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": {
+        "xField": "Time",
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "id": 5,
+      "type": "barchart",
+      "title": "Match Rate Buckets — cancelled",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "job_match_rate_bucket{status=\"cancelled\"}", "legendFormat": "{{bucket}}", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": {
+        "xField": "Time",
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "id": 6,
+      "type": "barchart",
+      "title": "Match Rate Buckets — expired",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "job_match_rate_bucket{status=\"expired\"}", "legendFormat": "{{bucket}}", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "options": {
+        "xField": "Time",
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } }
+      }
+    }
+  ]
+}

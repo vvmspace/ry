@@ -4,8 +4,16 @@
   "version": "1.0.0",
   "description": "Autofills LinkedIn URL into inputs whose label mentions LinkedIn.",
   "permissions": [
-    "storage"
+    "storage",
+    "scripting"
   ],
+  "host_permissions": [
+    "https://jobs.ashbyhq.com/*",
+    "http://tma.kingofthehill.pro:4040/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "LinkedIn Autofill",
     "default_popup": "popup.html"
@@ -13,7 +21,10 @@
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "https://jobs.ashbyhq.com/*",
+        "https://apply.workable.com/*",
+        "https://jobs.lever.co/*",
+        "https://job-boards.greenhouse.io/*"
       ],
       "js": [
         "content.js"

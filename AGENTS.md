@@ -16,26 +16,79 @@ Node.js
 Mongoose
 Puppeteer
 
+## State: state.json
 
-## Parsing steps
+File under .gitignore. It may be empty, broken, or not exist.
 
-### Jobs List Parser Worker
+stores workers state and result:
 
-Parse all jobs (links like https://remoteyeah.com/jobs/...), first page only and save to db with status `pending`. (ex: jobs_list_page.example.html) with job url and jobs list url.
+```json
+{
+  "last": {
+    "success": {
+      "pending": "date",
+      "saved": "date",
+      "generated": "date"
+    },
+    "error": {
+      "pending": "date",
+      "saved": "date",
+      "generated": "date"
+    }
+  }
+}
+```
+
+In case of bulk processing like parsing the list - write to the state by the end of execution.
+
+## questions.json
+
+Stores questions and how often they appears like:
+
+{
+  "Some question": 1
+}
+
+When application worker founds question what he can't answer - he adds it or increments count.
+
+## Jobs List Parser Worker
+
+Check optional PENDING_SUCCESS_INTERVAL, PENDING_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - PENDING_SUCCESS_INTERVAL) < inSeconds(state.last.success.pending) or NOW_S - PENDING_ERROR_INTERVAL) < inSeconds(state.last.error.pending) then process.exit();
+
+Parse all jobs (links like https://remoteyeah.com/jobs/...), first page only and save to db with status `pending`. (ex: html_examples/remoteyeah/jobs_list_page.example.html) with job url and jobs list url.
 Ignore urls with stop words from STOP_WORDS env variable case insensitive.
 If page with same url is exist in database - ignore it.
 
 
-### Job Page Parser Worker
-ex: job_page.example.html
+In case of success - saves current datetime to state.json: state.last.success.pending, in case of error (or total saved 0) to state.last.error.pending
+
+## Job Page Parser Worker
+ex: html_examples/remoteyeah/job_page.example.html
+0. Check optional SAVED_SUCCESS_INTERVAL, SAVED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - SAVED_SUCCESS_INTERVAL) < inSeconds(state.last.success.saved) or NOW_S - SAVED_ERROR_INTERVAL) < inSeconds(state.last.error.saved) then process.exit();
 
 Takes one `pending` job from db.
-Parsing it.
+Parsing it. 
+Required:
+    title: String,
+    companyName: String,
+    salary: String,
+    description: String,
+
+Optional:
+  Job title - sourceJobTitle
+  Job type - sourceJobType (Full-time/...)
+  Experience level - sourceExperienceLevel (Internship/Entry/Senior)
+  Degree requirement - degreeRequired (boolean)
+  Skills - skills ['Machine Learning', 'TypeScript']
+  Location requirements - locations ['Serbia', 'Armenia']
+  Benefits - benefits ['Medical benefits', 'Relocation', ...]
+
 Clicks apply -> gets opened (after redirect ...) link
+Checks for expriration (same method as in expiration worker), if expired - save with status expired and exit.
 Gets domain as additional field.
 Saves job to db with status `saved`.
 
-## Job page
+### Job page
 
 Job page contains:
 - title
@@ -44,16 +97,95 @@ Job page contains:
 - description
 - application form - it is a hidden link: when you click apply - it opens link with application page. We need to extract application page url.
 
+in case of success - saves current datetime to state.json: state.last.success.saved, in case of error of no pending to state.last.error.saved
+
+## Links fixer worker
+
+<context>Some links was not parsed properly, when browser wasn't logged in to remoteyeah.com, as result we have `applicationUrl` with url like `https://remoteyeah.com/login?redirect_url=https%3A%2F%2Fremoteyeah.com%2Fjobs%2Fremote-senior-frontend-software-engineer-reactjs-and-nextjs-mindera`.</context>
+
+We need to fix it:
+1. Find 1 not `applied`, not `expired`, not `error` job with `applicationUrl` like `remoteyeah.com/login`. (`matchRate` desc, `createdAt` desc)
+2. Open `url` again
+3. click apply
+4. get opened after redirect `applicationUrl`
+5. update `applicationUrl`: if `applicationUrl` contains `remoteyeah.com/login` then use `url`
+
+Use same methods as `Job Parser Worker`
+
+## Abstract AI
+
+### LLM APIs Abstraction concept
+
+We should use abstraction layer for LLM APIs to be able to switch between different LLM providers easily.
+
+`model` should be passed by parameter and based on `model` we should use different LLM providers following abstraction principles.
+
+By default we use `gemma` and `gemini-2.5-flash` for free.
+
+### LLM API Keys
+
+API keys should be stored in environment variables, separated by commas, like:
+
+```
+LOCAL_LLM_API_KEY= # OpenAI compatibke
+LOCAL_LLM_API_URL= # optional, if provided  
+GEMINI_API_KEY=gemini_key1,gemini_key2,gemini_key3
+OPENAI_API_KEY=openai_key
+OPENROUTER_API_KEY=openrouter_key1,openrouter_key2
+```
+
+If there are more than 1 key for provider, we should use the random key from the list.
+
+### Prompts templating
+
+#### Variables
+
+%variable% %variable1|default%
+
+### Methods
+
+- .ask(prompt: string, model_and_fallbacks_by_commas?: string) `.ask('Hello')`, `.ask('Hello','local,gemma,openrouter:free')`
+- .json(prompt: string, example_or_description: string | any, model_and_fallbacks_by_commas?: string): `.json('2+2=', { result: 4 })`, `.json('2+2=', 'result: number, example: { result: 4 }, 'gemma,gemini-2.5-flash')`, `.json('bla bla from 0 to 100', { rate: 100 }, 'local,gemma'))`
+
+
+## Match Rate Worker
+
+If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
+- get 1 cv: `updatedAt` asc
+- use `prompts/rate.md` + ai service + cv text + vacancy text + `local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`
+- save `match_rate` and `updatedAt`
+
+## Cover Letter Generation Worker
+
+If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
+- get 1 cv: `match_rate` desc, `createdAt` desc, status: `saved`,`generated`
+- use `prompts/cover_letter.md` + ai service + cv text + vacancy text + `local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`
+- save `coverLetter` and `updatedAt`
+
 
 ## CV Generation Worker
 
-1. Gets 1 `saved` from DB.
+0. Check optional GENERATED_SUCCESS_INTERVAL, GENERATED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - GENERATED_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - GENERATED_ERROR_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
+
+1. Gets 1 `saved` (`match_rate` desc, `createdAt` desc) from DB:
+
+Check priority.json file like:
+```
+{
+    "generate": {
+        "domain": ["ashbyhq.com"], // domain includes "ashbyhq.com" case insensitive
+        "description": ["nestjs"] // description includes "nestjs" case insensitive
+    }
+}
+```
+
+strings means: includes in key, not equals
+order by count of filters then by updatedAt desc
 
 2. POST https://tma.kingofthehill.pro/api/v1/generate_cv
 ```json
 {
     "vacancy_text": "Put title + vacancy text there",
-    "template": "dark_calendly",
     "model": "gemini-3.1-pro-preview"
 }
 ```
@@ -75,13 +207,37 @@ Job page contains:
 5. Gets pdf_url from response
 6. cv_url=`https://tma.kingofthehill.pro${pdf_url}`
 7. saves with status `generated`
+8. in case of success - saves current datetime to state.json: state.last.success.generated, in case of error to state.last.error.generated
+
+## Expiration worker
+
+1. Gets one not `expired`/`applied`/`error` job from DB with updatedAt asc
+2. Follows link to application page
+3. Waits for page loading
+3. If response.status === 404 or content contains 'not found'/'no longer available'/'This job posting is closed and the position is probably filled.' case insensitive or redirects to "*?not_found=true" - saves status `expired`
+4. Updates updatedAt
+
+## Browser usage
+
+All workers what use browser should save to state.json:
+```json
+{
+  // ...
+  "browser": {
+    "active": true, // set true on start, false on exit
+    "lastUsage": "2022-01-01T00:00:00.000Z"
+  }
+}
+```
+If `browser.active` is true and `browser.lastUsage` is less than 10 minutes ago, then skip browser usage.
+
 
 ## API
 
 GET /api/v1/jobs
 
 list jobs ordered by:
-- status: started -> generated -> error -> saved -> pending -> cancelled -> applied
+- status: interview -> screening -> started -> generated -> error -> saved -> pending -> applied -> cancelled -> expired
 - matchRate desc
 - updatedAt desc
 
@@ -91,9 +247,43 @@ with optional filters:
 - exclude= - desciption and title should not include
 - domain= - domain should include
 
+optional query params:
+- limit=100
+- skip=0
+
 PATCH /api/jobs/:_id
 
-{ status: pending, saved, generated, started, applied, cancelled }
+{ status: pending, saved, generated, started, applied, screening, interview, cancelled, expired }
+
+# POST /api/v1/ai/ask/, optional: /api/v1/ai/ask/?applicationUrl=%includes%
+
+```
+{
+  "questions": {
+    "What is your favotive cow?": "string",
+    "How old are you?": 100,
+    "Do you like AI?": true
+  },
+  "model_and_fallbacks_by_commas?": "string"
+}
+```
+
+1. Loads full_cv.md or full_cv.example.md if exists
+2. If applicationUrl is provided - find 1 job by url includes %applicationUrl% if exists and use its data.
+3. Use prompt from prompts/ask.md
+
+Endpoint returns aswers in json format:
+
+```
+{
+  "answers": {
+    "What is your favotive cow?": "string",
+    "How old are you?": 100,
+    "Do you like AI?": true
+  } 
+}
+```
+
 
 ## Frontend
 Nuxt.js, adaptive, dark mode, mobile first, same port as API.
@@ -120,7 +310,7 @@ Fields:
 - domain (top level: jobs.lever.co -> lever.co, jobs.remoteok.com -> remoteok.com, ...)
 - status: select box with statuses, call update API on change and fetch vacancies list
 - link to vacancy (applicationUrl), set 'started' status on click
-- copy: icons buttons: greeting_message, email, why_answer if provided
+- copy: icons buttons: greeting_message, cover_letter, email, why_answer if provided
 - link to CV: PDF icon, download on click
 
 ## Deployment: github on push githook from local machine
@@ -135,6 +325,61 @@ REMOTE_PATH=/home/sudar/ry
 Add github githook after push (husky?):
 
 ssh USER_HOST 'cd REMOTE_PATH && npm run deploy'
+
+
+## JOBS.ASHBYHQ.COM applier worker (beta: don't add to pm2 yet, just create npm ashby:apply script)
+
+ASHBY_HEADLESS=true (if not passed like ASHBY_HEADLESS=false)
++/- random page size = view_port
+
+Means:
+- "Option 1 / Option 2" Option 1 or Option 2 or both
+- ["salary", "daily"] - label includes "salary" and "daily" case insensitive
+
+Required means: input is "required" or label plain text ends by "*"
+0. time_start
+1. Gets 1 random 'generated' job with manual: false/null/undefined and domain: jobs.ashbyhq.com
+2. scrolls bottom -> scrolls top -> Clicks "Application" tab
+3. Waits page loading, if no inputs found - wait 5s and click again (once)
+4. Console log all inputs with labels highlighting for required fields
+5. If found "not found" - saves status "expired" and exiting
+6. Checks that we have data to fill all fields, if not - console.error('Additional required fields found'), sets `manual: true`, `additional_questions: ['','']`, updates questions.json and exiting
+7. Fills required visible fields (if not market "(always)" in description) mapped to labels (label lowercase includes field from our list lowercase), waits rand(1,5) sec after every field:
+- Legal Name / Name / Full name (not First name and Last name separately) = `${FIRST_NAME} ${LAST_NAME}`
+- First name / Legal first name = FIRST_NAME
+- Last name / Legal last name = LAST_NAME
+- Prefered name = FIRST_NAME
+- Prefered first name = FIRST_NAME
+- Prefered last name = LAST_NAME
+- "pronouns" = "He/Him"
+- E-mail / Email = email from db
+- Phone (always) = PHONE
+- Resume / CV = emulate drag and drop CV from db
+- GitHub / GitLab = GITHUB_PROFILE
+- LinkedIn (always) = LINKEDIN_PROFILE
+- Cover letter / Additional information = greeting_message + '\n\n' + require('constants/text.constants.js').b2b
+- Location (always): type "Yerevan" and click suggestion or try "Armenia"
+- portfolio = GITHUB_PROFILE
+- ["salary", "daily"] - 300$ if text, 300 if 
+- ["salary", "year", "range"] - salary from db (only digits and "-") or 80000-150000$
+- ["salary", "month", "range"] - 7000-15000$
+- ["salary"] - salary from db or 80000-150000$ / y
+- ["when", "start"] = 0-3 weeks if input, next monday if date
+- ["notice", "period"] = 0-3 weeks
+- ["why", "?"] = why_answer
+- Eligibility/eligible - yes/true
++ check answers.json
+8. finds button with text "Submit Application"
+9. waits 60s - (timestamp-time_start) + rand(0,15)s + fields count * 2s
+10. saves screenshot to ./tmp/before_submit and ./tmp/before_submit.png
+11. Saves rendered html to ./tmp/last.html
+12. clicks "Submit Application"
+13. waits 5 sec
+14. takes screenshot to ./tmp/success + ./tmp/success.png or ./tmp/error + ./tmp/error.png
+15. if got "success" (.ashby-application-form-success-container found) - set status: 'applied', else manual: true
+16. exit
+
+Reset script: `npm run ashby:reset` - connects to db and sets 'manual: false', removes questions.json
 
 ## Acceptance criteria:
 

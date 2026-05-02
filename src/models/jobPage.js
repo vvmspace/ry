@@ -11,7 +11,7 @@ const jobPageSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "saved", "generated", "started", "applied", "cancelled", "error"],
+      enum: ["pending", "saved", "generated", "started", "applied", "screening", "interview", "cancelled", "error", "expired"],
       required: true,
       default: "pending",
       index: true,
@@ -28,6 +28,27 @@ const jobPageSchema = new mongoose.Schema(
     email: String,
     topTechAndSkills: String,
     whyAnswer: String,
+    matchRateComment: String,
+    coverLetter: String,
+    /** Optional:
+     * Job title - sourceJobTitle
+      Job type - sourceJobType (Full-time/...)
+      Experience level - sourceExperienceLevel (Internship/Entry/Senior)
+      Degree requirement - degreeRequired (boolean)
+      Skills - skills ['Machine Learning', 'TypeScript']
+      Location requirements - locations ['Serbia', 'Armenia']
+      Benefits - benefits ['Medical benefits', 'Relocation', ...]
+     */
+    
+    sourceJobTitle: String,
+    sourceJobType: String,
+    sourceExperienceLevel: String,
+    degreeRequired: Boolean,
+    skills: [String],
+    locations: [String],
+    benefits: [String],
+    additional_questions: [String],
+    manual: { type: Boolean, default: false },
   },
   {
     timestamps: true,

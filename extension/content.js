@@ -1,14 +1,44 @@
 const LINKEDIN_LABEL_RE = /linkedin/i;
-const FILLED_FLAG = "linkedinAutofillApplied";
-const INITIAL_FILL_DELAY_MS = 2000;
-const RETRY_DELAYS_MS = [0, 300, 1000, 2000, 4000];
-const LOG_PREFIX = "[linkedin-autofill]";
+const PHONE_LABEL_RE = /telephone|phone/i;
+const PORTFOLIO_LABEL_RE = /portfolio|site|github/i;
+const SALARY_LABEL_RE = /salary|expectations|compensation/i;
+const FIRST_NAME_LABEL_RE = /first name/i;
+const LAST_NAME_LABEL_RE = /last name/i;
 
-const hashmap = {
-  "linkedIn": "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/",
-  "salary usd": "8000",
-  "salary eur": "7000"
+const isBasicField = (labelText) =>
+  [
+    LINKEDIN_LABEL_RE,
+    PHONE_LABEL_RE,
+    PORTFOLIO_LABEL_RE,
+    // SALARY_LABEL_RE,
+    FIRST_NAME_LABEL_RE,
+    LAST_NAME_LABEL_RE,
+  ].some(re => re.test(labelText));
+const isIgnored = (labelText) => ['Yes', 'to relocate', 'Twitter', 'LinkedIn', 'GitHub', 'Portfolio'].find(word => labelText.includes(word));
+
+const FILLED_FLAG = "autofillApplied";
+const LOG_PREFIX = "[remoteyeah-autofill]";
+const API_URL = "http://tma.kingofthehill.pro:4040/api/v1/ai/ask";
+const toSnakeCase = (str) => {
+  if (!str) return '';
+
+  return str
+    .trim()                                // trim
+    .toLowerCase()                         // toLowerCase
+    .replace(/[\s-]+/g, '_')               // replace spaces and hyphens with underscores
+    .replace(/[^a-zA-Z0-9_]/g, '')         // replace special characters with empty string
+    .replace(/^-+|-+$/g, '');              // remove leading/trailing hyphens
 };
+const defaultValues = {
+  linkedIn: "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/",
+  phone: "+37498330380",
+  portfolio: "https://github.com/vvmspace/theproject",
+  firstName: "Vladimir",
+  lastName: "Myagdeev",
+  // salaryExpectations: "From 3600$, comfortable 5500$, perfect 7000$"
+};
+
+let aiAnswers = {};
 
 function log(...args) {
   console.log(LOG_PREFIX, ...args);
@@ -23,145 +53,376 @@ function dispatchInputEvents(input) {
 }
 
 function setNativeValue(input, value) {
+  log("setNativeValue", { id: input.id, name: input.name, value });
+  
+  // Try Method 1: Native Descriptor (often bypasses site's intercepted setters)
   const prototype =
     input instanceof HTMLTextAreaElement
       ? window.HTMLTextAreaElement.prototype
       : window.HTMLInputElement.prototype;
-  const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
 
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
   if (descriptor?.set) {
-    descriptor.set.call(input, value);
-  } else {
+    try {
+      descriptor.set.call(input, value);
+      log("native set attempted", { id: input.id });
+    } catch (error) {
+      if (error.name === 'InvalidStateError') {
+        log("ignoring InvalidStateError in native set (likely a file input)", { id: input.id });
+      } else {
+        log("native set failed", { id: input.id, error: error.message });
+      }
+    }
+  }
+
+  // Try Method 2: Direct assignment (triggers built-in browser/site setters)
+  try {
     input.value = value;
+    log("direct set attempted", { id: input.id });
+  } catch (error) {
+    if (error.name === 'InvalidStateError') {
+      log("ignoring InvalidStateError in direct set (likely a file input)", { id: input.id });
+    } else {
+      log("direct set failed", { id: input.id, error: error.message });
+    }
   }
 }
 
-function fillInput(input, linkedinUrl) {
-  if (!input || !linkedinUrl || input.dataset[FILLED_FLAG] === "true") {
-    log("skipping fill", {
-      hasInput: Boolean(input),
-      hasLinkedinUrl: Boolean(linkedinUrl),
-      alreadyFilled: input?.dataset?.[FILLED_FLAG] === "true"
-    });
+function fillInput(input, value) {
+  console.log("fillInput", input, value);
+  if (!input || !value || input.dataset[FILLED_FLAG] === "true") {
+    console.log("skipping fillInput: input is null or value is null or already filled", input, value);
     return;
   }
 
   if (input.value && input.value.trim().length > 0) {
-    log("input already has value, skipping", {
-      id: input.id,
-      name: input.name,
-      value: input.value
-    });
+    console.log("skipping fillInput: value already exists", input, value);
     return;
   }
 
-  log("filling input", { id: input.id, name: input.name, linkedinUrl });
-  setNativeValue(input, linkedinUrl);
+  log("filling input", { id: input.id, name: input.name, value });
+  setNativeValue(input, value);
   dispatchInputEvents(input);
 
-  if ((input.value || "").trim() === linkedinUrl) {
+  if ((input.value || "").trim() === value) {
     input.dataset[FILLED_FLAG] = "true";
     log("fill confirmed", { id: input.id, name: input.name });
-  } else {
-    log("fill did not stick", {
-      id: input.id,
-      name: input.name,
-      currentValue: input.value
-    });
   }
 }
 
 function findInputByLabel(label) {
   const htmlFor = label.getAttribute("for");
-  log("resolving input for label", {
-    text: (label.textContent || "").trim(),
-    htmlFor
-  });
-
   if (htmlFor) {
-    const inputById = document.getElementById(htmlFor);
-    log("lookup by for/id result", { htmlFor, found: Boolean(inputById) });
-    return inputById;
+    return document.getElementById(htmlFor);
   }
 
-  const fieldEntry = label.closest(".ashby-application-form-field-entry");
-  const scopedInput =
-    fieldEntry?.querySelector("input, textarea") ||
+  const fieldEntry = label.closest(".ashby-application-form-field-entry, .application-questions .input-wrapper");
+  if (fieldEntry) {
+    return fieldEntry.querySelector("input, textarea");
+  }
+
+  // Workable: look for textarea/input by aria-labelledby or within the same parent structure
+  const labelId = label.querySelector("[id]")?.id;
+  if (labelId) {
+    const inputById = document.querySelector(`[aria-labelledby="${labelId}"]`);
+    if (inputById) {
+      return inputById;
+    }
+  }
+
+  // Lever: look for input/textarea within the same parent container
+  const appQuestion = label.closest(".application-question");
+  if (appQuestion) {
+    const appField = appQuestion.querySelector(".application-field");
+    if (appField) {
+      return appField.querySelector("input, textarea");
+    }
+  }
+
+  return (
     label.parentElement?.querySelector("input, textarea") ||
-    label.querySelector("input, textarea");
-  if (scopedInput) {
-    log("scoped lookup result", {
-      found: true,
-      tagName: scopedInput.tagName,
-      type: scopedInput.type || null
-    });
-    return scopedInput;
-  }
-
-  const nestedInput =
-    label.querySelector("input, textarea") ||
-    label.parentElement?.querySelector("input, textarea");
-  log("fallback nested lookup result", { found: Boolean(nestedInput) });
-  return nestedInput;
+    label.querySelector("input, textarea")
+  );
 }
 
-function fillLinkedinFields(linkedinUrl) {
-  if (!linkedinUrl) {
-    log("linkedin url is empty, nothing to fill");
-    return;
+function isTextualInput(input) {
+  if ([...input.classList].some(cls => cls.includes('select'))) {
+    return false;
   }
+  return (
+    input instanceof HTMLTextAreaElement ||
+    ["text", "url", "email", "search", "tel", ""].includes(input?.type || "")
+  );
+}
 
+function autofillFields(values, customValues = {}) {
+
+  console.log("values", values);
   const labels = document.querySelectorAll("label");
-  log("scan started", { labelsCount: labels.length });
 
+  // Build a map of snake_case label text -> label element for lookup
+  const labelTextMap = new Map();
   for (const label of labels) {
     const labelText = (label.textContent || "").trim();
-    if (!LINKEDIN_LABEL_RE.test(labelText)) {
+    if (labelText) {
+      labelTextMap.set(toSnakeCase(labelText), label);
+    }
+  }
+
+  // First pass: fill by snake_case keys from AI answers matching label text
+  for (const [snakeKey, value] of Object.entries(values)) {
+    const label = labelTextMap.get(snakeKey);
+    if (label) {
+      const input = findInputByLabel(label);
+      if (input instanceof HTMLInputElement && isTextualInput(input)) {
+        fillInput(input, value);
+        console.log("filled input", input);
+      } else if (input instanceof HTMLTextAreaElement) {
+        fillInput(input, value);
+        console.log("filled textarea", input);
+      }
+    }
+  }
+
+  // Second pass: traditional label-based filling for basic fields
+  for (const label of labels) {
+    const labelText = (label.textContent || "").trim();
+    if (!labelText) continue;
+
+    let valueToFill = values[toSnakeCase(labelText)] || values[labelText];
+
+    // Apply defaults for basic fields if no AI answer
+    if (!valueToFill) {
+
+      let value = [
+        {
+          regex: FIRST_NAME_LABEL_RE,
+          value: defaultValues.firstName
+        }, {
+          regex: LAST_NAME_LABEL_RE,
+          value: defaultValues.lastName
+        }, {
+          regex: LINKEDIN_LABEL_RE,
+          value: defaultValues.linkedIn
+        }, {
+          regex: PHONE_LABEL_RE,
+          value: defaultValues.phone
+        }, {
+          regex: PORTFOLIO_LABEL_RE,
+          value: defaultValues.portfolio
+        }, {
+          regex: SALARY_LABEL_RE,
+          value: defaultValues.salaryExpectations
+        }].find(v => v.regex.test(labelText))?.value;
+
+      if (value) {
+        valueToFill = value;
+      }
+    }
+
+    if (valueToFill) {
+      const input = findInputByLabel(label);
+      if (input instanceof HTMLInputElement && isTextualInput(input)) {
+        fillInput(input, valueToFill);
+      } else if (input instanceof HTMLTextAreaElement) {
+        fillInput(input, valueToFill);
+      }
+    }
+  }
+
+  // Workable: additionally try to fill inputs by data-ui attribute matching question keys
+  const workableInputs = document.querySelectorAll("textarea[data-ui], input[data-ui]");
+  for (const input of workableInputs) {
+    if (input.dataset[FILLED_FLAG] === "true") {
+      continue;
+    }
+    if (input.value && input.value.trim().length > 0) {
       continue;
     }
 
-    log("matching label found", { text: labelText });
-    const input = findInputByLabel(label);
-    const isSupportedInput =
-      input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement;
-    const isTextualInput =
-      input instanceof HTMLTextAreaElement ||
-      ["text", "url", "email", "search", "tel", ""].includes(input?.type || "");
+    const dataUi = input.getAttribute("data-ui");
+    if (dataUi && values[toSnakeCase(dataUi)]) {
+      fillInput(input, values[toSnakeCase(dataUi)]);
+    }
 
-    if (isSupportedInput && isTextualInput) {
-      fillInput(input, linkedinUrl);
-    } else {
-      log("matching label found but suitable text input missing", {
-        hasInput: Boolean(input),
-        tagName: input?.tagName || null,
-        type: input?.type || null
-      });
+    // Also try to match via aria-labelledby text
+    const labelId = input.getAttribute("aria-labelledby");
+    if (labelId) {
+      const labelEl = document.getElementById(labelId);
+      if (labelEl) {
+        const labelText = (labelEl.textContent || "").trim();
+        const snakeKey = toSnakeCase(labelText);
+        if (values[snakeKey]) {
+          fillInput(input, values[snakeKey]);
+        }
+      }
+    }
+  }
+
+  // Lever: fill inputs within .application-question elements
+  const leverQuestions = document.querySelectorAll(".application-question.custom-question");
+  for (const question of leverQuestions) {
+    // Find the label text within .application-label
+    const labelEl = question.querySelector(".application-label .text");
+    if (!labelEl) continue;
+
+    const labelText = (labelEl.textContent || "").trim();
+    if (!labelText) continue;
+
+    const snakeKey = toSnakeCase(labelText);
+    const valueToFill = values[snakeKey];
+    if (!valueToFill) continue;
+
+    // Find the textarea/input within .application-field
+    const appField = question.querySelector(".application-field");
+    if (appField) {
+      const input = appField.querySelector("input, textarea");
+      if (input && isTextualInput(input) && !input.dataset[FILLED_FLAG] && (!input.value || input.value.trim().length === 0)) {
+        fillInput(input, valueToFill);
+      }
     }
   }
 }
 
-function startObserver(linkedinUrl) {
-  log("observer starting", { initialDelayMs: INITIAL_FILL_DELAY_MS });
-  for (const retryDelayMs of RETRY_DELAYS_MS) {
-    const totalDelayMs = INITIAL_FILL_DELAY_MS + retryDelayMs;
-    window.setTimeout(() => {
-      log("scheduled fill fired", { totalDelayMs });
-      fillLinkedinFields(linkedinUrl);
-    }, totalDelayMs);
+async function fetchAiAnswers(applicationId) {
+  log("fetching AI answers", { applicationId });
+
+  // Extract all questions from labels in one pass
+  const labels = document.querySelectorAll("label");
+  console.log("labels count", labels.length);
+  const questions = {};
+  const labelMap = new Map(); // Map snake_case key -> labelText for later lookup
+
+
+
+  for (const label of labels) {
+    const labelText = (label.textContent || "").trim();
+    if (!labelText) continue;
+
+    if (!isBasicField(labelText) && !isIgnored(labelText)) {
+      const snakeKey = toSnakeCase(labelText);
+      questions[snakeKey] = labelText;
+      labelMap.set(snakeKey, labelText);
+    }
   }
 
-  const observer = new MutationObserver(() => {
-    log("mutation observed, rescanning");
-    fillLinkedinFields(linkedinUrl);
-  });
+  // Workable: additionally extract questions from textarea/input elements with data-ui attribute
+  const workableInputs = document.querySelectorAll("textarea[data-ui], input[data-ui]");
+  for (const input of workableInputs) {
+    const dataUi = input.getAttribute("data-ui");
+    if (!dataUi) continue;
 
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true
-  });
+    // Try to find the associated label via aria-labelledby
+    const labelId = input.getAttribute("aria-labelledby");
+    let labelText = "";
+
+    if (labelId) {
+      const labelEl = document.getElementById(labelId);
+      if (labelEl) {
+        labelText = (labelEl.textContent || "").trim();
+      }
+    }
+
+    // If no label found via aria-labelledby, use data-ui as fallback key
+    if (!labelText) {
+      labelText = dataUi;
+    }
+
+    // Skip basic fields and ignored patterns
+
+    if (!isBasicField(labelText) && !isIgnored(labelText)) {
+      const snakeKey = toSnakeCase(labelText);
+      questions[snakeKey] = labelText;
+      labelMap.set(snakeKey, labelText);
+    }
+  }
+
+  // Lever: extract questions from .application-question elements
+  const leverQuestions = document.querySelectorAll(".application-question.custom-question");
+  for (const question of leverQuestions) {
+    // Find the label text within .application-label
+    const labelEl = question.querySelector(".application-label .text");
+    if (!labelEl) continue;
+
+    const labelText = (labelEl.textContent || "").trim();
+    if (!labelText) continue;
+
+    // Skip basic fields and ignored patterns
+    if (!isBasicField(labelText) && !isIgnored(labelText)) {
+      const snakeKey = toSnakeCase(labelText);
+      questions[snakeKey] = labelText;
+      labelMap.set(snakeKey, labelText);
+    }
+  }
+
+  if (Object.keys(questions).length === 0) {
+    log("no questions found to ask AI");
+    return {};
+  }
+
+  console.log("questions", questions);
+
+  try {
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        {
+          type: 'FETCH_AI_ANSWERS',
+          data: { applicationUrl: applicationId, questions }
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response.answers) {
+            // API returns { answers: { ... } }
+            resolve({ success: true, data: response.answers });
+          } else if (response.success) {
+            resolve(response.data);
+          } else {
+            reject(new Error(response.error || 'Unknown error'));
+          }
+        }
+      );
+    });
+
+    log("AI answers received", { count: Object.keys(response).length });
+    return response;
+  } catch (error) {
+    log("failed to fetch AI answers", { error: error.message });
+    return {};
+  }
+}
+
+async function init(customValues) {
+  log("initialization started");
+
+  // Extract application ID from URL
+  const fullUrl = window.location.href;
+  const idMatch = fullUrl.match(/\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\//i);
+  const applicationId = idMatch ? idMatch[1] : fullUrl;
+  log("application ID extracted", { applicationId });
+  console.log("customValues", customValues);
+
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  autofillFields(customValues);
+  // Fetch AI answers
+  aiAnswers = await fetchAiAnswers(applicationId);
+
+  // Fill all fields (AI answers + defaults)
+  autofillFields(aiAnswers.answers.answers, customValues);
+
+  // Mutation observer disabled - ignoring DOM mutations
+  // const observer = new MutationObserver(() => {
+  //   log("mutation observed, refilling");
+  //   autofillFields(aiAnswers, customValues);
+  // });
+
+  // observer.observe(document.documentElement, {
+  //   childList: true,
+  //   subtree: true
+  // });
 }
 
 chrome.storage.sync.get(["linkedinUrl"], ({ linkedinUrl }) => {
   log("storage loaded", { linkedinUrl });
-  startObserver(linkedinUrl || "https://www.linkedin.com/in/vladimir-myagdeev-b03322160/");
+  init({ linkedinUrl });
 });
