@@ -118,12 +118,12 @@ async function generateCvForJob(job, options = {}) {
 
   const body = {
     vacancy_text: vacancyText,
-    template,
+    template: 'light_calendly',
     model,
   };
 
   const url = `${API_BASE}${GENERATE_CV_PATH}`;
-  
+
   console.log("API Request:", JSON.stringify({
     method: "POST",
     url: url,

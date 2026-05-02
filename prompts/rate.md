@@ -19,7 +19,8 @@ LOCATION RULES:
 3. If relocation is required, the match_rate MUST be decreased by 20%.
 4. +3% for Armenia, Georgia, Serbia, Montenegro and UAE.
 5. +2% for B2B contracts.
-6. Ignore location rules for Web3 companies.
+6. -5% if the company is from the USA.
+7. Ignore location rules for Web3 companies.
 
 Response must be only json object, without any additional text.
 Response in json format example:

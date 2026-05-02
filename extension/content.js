@@ -53,27 +53,38 @@ function dispatchInputEvents(input) {
 }
 
 function setNativeValue(input, value) {
-  console.log("setNativeValue", input, value);
+  log("setNativeValue", { id: input.id, name: input.name, value });
+  
+  // Try Method 1: Native Descriptor (often bypasses site's intercepted setters)
   const prototype =
     input instanceof HTMLTextAreaElement
       ? window.HTMLTextAreaElement.prototype
       : window.HTMLInputElement.prototype;
 
-  console.log("prototype", prototype);
   const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
-
-  console.log("descriptor", descriptor);
   if (descriptor?.set) {
     try {
       descriptor.set.call(input, value);
-      console.log("set value", input, value);
+      log("native set attempted", { id: input.id });
     } catch (error) {
-      log("failed to set value", { id: input.id, name: input.name, error });
-      input.value = value;
+      if (error.name === 'InvalidStateError') {
+        log("ignoring InvalidStateError in native set (likely a file input)", { id: input.id });
+      } else {
+        log("native set failed", { id: input.id, error: error.message });
+      }
     }
-  } else {
-    console.log("setting value directly", input, value);
+  }
+
+  // Try Method 2: Direct assignment (triggers built-in browser/site setters)
+  try {
     input.value = value;
+    log("direct set attempted", { id: input.id });
+  } catch (error) {
+    if (error.name === 'InvalidStateError') {
+      log("ignoring InvalidStateError in direct set (likely a file input)", { id: input.id });
+    } else {
+      log("direct set failed", { id: input.id, error: error.message });
+    }
   }
 }
 
@@ -266,7 +277,7 @@ function autofillFields(values, customValues = {}) {
     const appField = question.querySelector(".application-field");
     if (appField) {
       const input = appField.querySelector("input, textarea");
-      if (input && !input.dataset[FILLED_FLAG] && (!input.value || input.value.trim().length === 0)) {
+      if (input && isTextualInput(input) && !input.dataset[FILLED_FLAG] && (!input.value || input.value.trim().length === 0)) {
         fillInput(input, valueToFill);
       }
     }
@@ -361,6 +372,9 @@ async function fetchAiAnswers(applicationId) {
         (response) => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
+          } else if (response.answers) {
+            // API returns { answers: { ... } }
+            resolve({ success: true, data: response.answers });
           } else if (response.success) {
             resolve(response.data);
           } else {

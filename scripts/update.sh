@@ -18,6 +18,15 @@ NEW_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
 echo "📦 Installing backend dependencies..."
 npm install
 
+# Build abstractai abstraction layer
+if [ -d "cv_builder/abstractai" ]; then
+    echo "🏗️  Building abstractai..."
+    cd cv_builder/abstractai
+    npm install
+    npm run build
+    cd ../..
+fi
+
 # Check if frontend needs to be built
 if [ "$OLD_HEAD" != "$NEW_HEAD" ] && git diff --name-only $OLD_HEAD $NEW_HEAD | grep -q '^frontend/'; then
     BUILD_FRONTEND=true
