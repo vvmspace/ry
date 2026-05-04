@@ -248,6 +248,23 @@ order by count of filters then by updatedAt desc
 3. If response.status === 404 or content contains 'not found'/'no longer available'/'This job posting is closed and the position is probably filled.' case insensitive or redirects to "*?not_found=true" - saves status `expired`
 4. Updates updatedAt
 
+## Legend generation worker
+
+1. gets 1 job with status `screening` or `interview` with `legend` not set (`legend` desc, `createdAt` desc) from DB
+2. Calls legeng generation for this job with _id
+
+## Legend generation by job id:
+
+```
+generate_legend(job_id){
+  // get job from db with _id:job_id
+  // generate legend from coverLetter + greetingMessage + whyAnswer + title + description using prompts/legend.md
+  // save job
+}
+```
+
+
+
 ## Browser usage
 
 All workers what use browser should save to state.json:
@@ -308,6 +325,10 @@ Example:
 ```
 
 Emits events like: job_updated({id, status, legend, ...})}
+
+### POST /api/v1/jobs/:_id/legend
+
+Triggers legend generation for job with _id :_id.
 
 ### POST /api/v1/ai/ask/, optional: /api/v1/ai/ask/?applicationUrl=%includes%
 
@@ -370,10 +391,13 @@ Fields:
 - link to HTML CV: HTML icon, view in new tab, equals to `cvHtmlUrl` if provided
 - link to /jobs/:id page: opens in new tab
 
-### /jobs/:id
+### /jobs/:id (job page)
 
 Show one job full data like the job object.
-Separated by sections hidden on null values.
+Separated by sections hidden on null or empty array/object values.
+
+Generatable sections should contain "generate" button:
+- legend
 
 
 ## Deployment: github on push githook from local machine

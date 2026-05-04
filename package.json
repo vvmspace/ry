@@ -17,6 +17,7 @@
     "jobs:cover-letter": "node ./src/workers/coverLetterWorker.js",
     "cv:generate": "node ./src/workers/cvGenerationWorker.js",
     "cv:urls-fix": "node ./src/workers/cvUrlsFixWorker.js",
+    "jobs:legend": "node ./src/workers/legendWorker.js",
     "ashby:apply": "node ./src/workers/ashbyApplyWorker.js",
     "ashby:reset": "node ./src/workers/ashbyResetWorker.js",
     "prestart": "npm run frontend:generate",

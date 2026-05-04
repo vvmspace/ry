@@ -54,6 +54,8 @@ const jobPageSchema = new mongoose.Schema(
     manual: { type: Boolean, default: false },
     ratingStartedAt: Date,
     coverLetterStartedAt: Date,
+    legend: String,
+    legendStartedAt: Date,
   },
   {
     timestamps: true,

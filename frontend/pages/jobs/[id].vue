@@ -26,6 +26,26 @@ async function fetchJob() {
   }
 }
 
+const generatingLegend = ref(false);
+
+async function generateLegend() {
+  if (!job.value || !job.value._id) return;
+  generatingLegend.value = true;
+  const base = apiBase.value.replace(/\/$/, "");
+  try {
+    const res = await fetch(`${base}/api/v1/jobs/${job.value._id}/legend`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    job.value = data;
+  } catch (e) {
+    alert(e instanceof Error ? e.message : "Failed to generate legend");
+  } finally {
+    generatingLegend.value = false;
+  }
+}
+
 onMounted(() => {
   void fetchJob();
 });
@@ -55,7 +75,7 @@ onMounted(() => {
       
       <div v-else-if="job" class="job-details-container">
         <div v-for="(value, key) in job" :key="key">
-          <section v-if="value !== null && value !== undefined && value !== '' && key !== '_id' && key !== '__v' && key !== 'title'" class="detail-section">
+          <section v-if="key !== 'legend' && value !== null && value !== undefined && value !== '' && key !== '_id' && key !== '__v' && key !== 'title'" class="detail-section">
             <h3 class="detail-label">{{ String(key).replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) }}</h3>
             
             <div v-if="key === 'description'" class="detail-content description-content" v-html="value"></div>
@@ -69,6 +89,17 @@ onMounted(() => {
             <div v-else class="detail-content">{{ value }}</div>
           </section>
         </div>
+
+        <section class="detail-section legend-section">
+          <div class="legend-header">
+            <h3 class="detail-label">Legend</h3>
+            <button @click="generateLegend" :disabled="generatingLegend" class="generate-btn">
+              {{ generatingLegend ? 'Generating...' : 'Generate' }}
+            </button>
+          </div>
+          <div v-if="job.legend" class="detail-content legend-content" style="white-space: pre-wrap;">{{ job.legend }}</div>
+          <div v-else class="detail-content empty-text">No legend generated yet.</div>
+        </section>
       </div>
     </main>
   </div>
@@ -163,6 +194,44 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.legend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.legend-header .detail-label {
+  margin-bottom: 0;
+}
+
+.generate-btn {
+  background: #3dd9b4;
+  color: #0d1117;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.generate-btn:hover:not(:disabled) {
+  background: #2cb898;
+  transform: translateY(-1px);
+}
+
+.generate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.empty-text {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .detail-content {
