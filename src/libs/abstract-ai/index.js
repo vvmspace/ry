@@ -192,8 +192,8 @@ class AbstractAI {
     };
 
     const text = data?.candidates?.[0]?.content?.parts?.filter(p =>
-      responseFormat === 'json' ? isValidJson(p.text) : true
-    )?.[0]?.text;
+      !p.thought && responseFormat === 'json' ? isValidJson(p.text) : true
+    )?.[0]?.text || data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     // console.log(text, responseFormat);
 
