@@ -58,6 +58,8 @@ const jobPageSchema = new mongoose.Schema(
     legendStartedAt: Date,
     bestCandidate: String,
     bestCandidateStartedAt: Date,
+    screeningQuestionsAnswers: String,
+    screeningQuestionsAnswersStartedAt: Date,
   },
   {
     timestamps: true,

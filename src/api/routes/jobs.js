@@ -4,6 +4,7 @@ const { listJobs, updateJobById, getJobById } = require('../jobsHandler');
 const { parseQuery, readBody } = require('../utils');
 const { generateLegend } = require('../../workers/legendWorker');
 const { generateBestCandidate } = require('../../workers/bestCandidateWorker');
+const { generateScreeningQuestions } = require('../../workers/screeningQuestionsWorker');
 
 const PATCH_V1_RE     = /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/?$/;
 const CV_V1_RE        = /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/cv\/?$/;
@@ -134,6 +135,18 @@ async function handleGenerateBestCandidate(req, res, params) {
   }
 }
 
+async function handleGenerateScreeningQuestions(req, res, params) {
+  try {
+    const updatedJob = await generateScreeningQuestions(params.id);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(updatedJob));
+  } catch (err) {
+    console.error(err);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+  }
+}
+
 module.exports = [
   { method: 'GET',   pattern: '/api/v1/jobs',  handler: handleListJobs },
   { method: 'GET',   pattern: PATCH_V1_RE,      handler: handleGetJob },
@@ -143,4 +156,5 @@ module.exports = [
   { method: 'GET',   pattern: CV_LEGACY_RE,     handler: redirectCvToV1 },
   { method: 'POST',  pattern: /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/legend\/?$/, handler: handleGenerateLegend },
   { method: 'POST',  pattern: /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/best_candidate\/?$/, handler: handleGenerateBestCandidate },
+  { method: 'POST',  pattern: /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/screening_questions\/?$/, handler: handleGenerateScreeningQuestions },
 ];

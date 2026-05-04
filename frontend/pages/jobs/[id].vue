@@ -67,6 +67,26 @@ async function generateBestCandidate() {
   }
 }
 
+const generatingScreeningQuestionsAnswers = ref(false);
+
+async function generateScreeningQuestionsAnswers() {
+  if (!job.value || !job.value._id) return;
+  generatingScreeningQuestionsAnswers.value = true;
+  const base = apiBase.value.replace(/\/$/, "");
+  try {
+    const res = await fetch(`${base}/api/v1/jobs/${job.value._id}/screening_questions`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    job.value = data;
+  } catch (e) {
+    alert(e instanceof Error ? e.message : "Failed to generate screening questions answers");
+  } finally {
+    generatingScreeningQuestionsAnswers.value = false;
+  }
+}
+
 function renderMarkdown(text: any) {
   if (typeof text !== 'string') return String(text);
   // Optional: add any marked configuration here if needed
@@ -102,7 +122,7 @@ onMounted(() => {
       
       <div v-else-if="job" class="job-details-container">
         <div v-for="(value, key) in job" :key="key">
-          <section v-if="key !== 'legend' && key !== 'bestCandidate' && value !== null && value !== undefined && value !== '' && key !== '_id' && key !== '__v' && key !== 'title'" class="detail-section">
+          <section v-if="key !== 'legend' && key !== 'bestCandidate' && key !== 'screeningQuestionsAnswers' && value !== null && value !== undefined && value !== '' && key !== '_id' && key !== '__v' && key !== 'title'" class="detail-section">
             <h3 class="detail-label">{{ String(key).replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) }}</h3>
             
             <div v-if="key === 'applicationUrl' || key === 'url' || String(key).toLowerCase().includes('url')">
@@ -136,6 +156,17 @@ onMounted(() => {
           </div>
           <div v-if="job.bestCandidate" class="detail-content legend-content description-content" v-html="renderMarkdown(job.bestCandidate)"></div>
           <div v-else class="detail-content empty-text">No best candidate generated yet.</div>
+        </section>
+
+        <section class="detail-section legend-section">
+          <div class="legend-header">
+            <h3 class="detail-label">Screening Questions Answers</h3>
+            <button @click="generateScreeningQuestionsAnswers" :disabled="generatingScreeningQuestionsAnswers" class="generate-btn">
+              {{ generatingScreeningQuestionsAnswers ? 'Generating...' : 'Generate' }}
+            </button>
+          </div>
+          <div v-if="job.screeningQuestionsAnswers" class="detail-content legend-content description-content" v-html="renderMarkdown(job.screeningQuestionsAnswers)"></div>
+          <div v-else class="detail-content empty-text">No screening questions answers generated yet.</div>
         </section>
       </div>
     </main>

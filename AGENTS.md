@@ -258,6 +258,11 @@ order by count of filters then by updatedAt desc
 1. gets 1 job with status `screening` or `interview` with `best_candidate` not set (`best_candidate` desc, `createdAt` desc) from DB
 2. Calls best candidate generation for this job with _id
 
+## Screening questions worker
+
+1. gets 1 job with status `screening` or `interview` with `screening_questions_answers` not set (`screening_questions_answers` desc, `createdAt` desc) from DB
+2. Calls screening questions generation for this job with _id
+
 ## Best candidate generation by job id:
 
 ```
@@ -278,6 +283,19 @@ generate_legend(job_id){
   //   downloads cvHtml or cvJson (prefer cvJson)
   //   parses cvHtml or cvJson
   // generate legend from coverLetter + greetingMessage + whyAnswer + title + description + cv_sent (text from json or html) + cv from full_cv.md or full_cv.example.md (prefer full_cv.md) using prompts/legend.md
+  // save job
+}
+```
+
+## Screening questions generation by job id:
+
+```
+generate_screening_questions(job_id){
+  // get job from db with _id:job_id
+  // if cvHtmlUrl or cvJsonUrl is present
+  //   downloads cvHtml or cvJson (prefer cvJson)
+  //   parses cvHtml or cvJson
+  // generate screening questions (screening_questions_answers) from coverLetter + greetingMessage + whyAnswer + title + description + cv_sent (text from json or html) + cv from full_cv.md or full_cv.example.md (prefer full_cv.md) using prompts/screening_questions.md
   // save job
 }
 ```

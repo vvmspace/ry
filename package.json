@@ -19,6 +19,7 @@
     "cv:urls-fix": "node ./src/workers/cvUrlsFixWorker.js",
     "jobs:legend": "node ./src/workers/legendWorker.js",
     "jobs:best-candidate": "node ./src/workers/bestCandidateWorker.js",
+    "jobs:screening-questions": "node ./src/workers/screeningQuestionsWorker.js",
     "ashby:apply": "node ./src/workers/ashbyApplyWorker.js",
     "ashby:reset": "node ./src/workers/ashbyResetWorker.js",
     "prestart": "npm run frontend:generate",
