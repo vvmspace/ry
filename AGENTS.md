@@ -402,6 +402,7 @@ Separated by sections hidden on null or empty array/object values.
 Generatable sections should contain "generate" button:
 - legend
 
+Text fields support markdown format.
 
 ## Deployment: github on push githook from local machine
 

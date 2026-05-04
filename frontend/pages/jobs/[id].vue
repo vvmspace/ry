@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { marked } from 'marked';
 const route = useRoute();
 const config = useRuntimeConfig();
 
@@ -46,6 +47,12 @@ async function generateLegend() {
   }
 }
 
+function renderMarkdown(text: any) {
+  if (typeof text !== 'string') return String(text);
+  // Optional: add any marked configuration here if needed
+  return marked.parse(text);
+}
+
 onMounted(() => {
   void fetchJob();
 });
@@ -78,15 +85,14 @@ onMounted(() => {
           <section v-if="key !== 'legend' && value !== null && value !== undefined && value !== '' && key !== '_id' && key !== '__v' && key !== 'title'" class="detail-section">
             <h3 class="detail-label">{{ String(key).replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) }}</h3>
             
-            <div v-if="key === 'description'" class="detail-content description-content" v-html="value"></div>
-            <div v-else-if="key === 'applicationUrl' || key === 'url' || String(key).toLowerCase().includes('url')">
+            <div v-if="key === 'applicationUrl' || key === 'url' || String(key).toLowerCase().includes('url')">
               <a :href="value" target="_blank" rel="noopener" class="detail-link">{{ value }}</a>
             </div>
             <div v-else-if="Array.isArray(value)" class="detail-tags">
               <span v-for="item in value" :key="item" class="tag">{{ item }}</span>
             </div>
             <pre v-else-if="typeof value === 'object'" class="detail-pre">{{ JSON.stringify(value, null, 2) }}</pre>
-            <div v-else class="detail-content">{{ value }}</div>
+            <div v-else class="detail-content description-content" v-html="renderMarkdown(value)"></div>
           </section>
         </div>
 
@@ -97,7 +103,7 @@ onMounted(() => {
               {{ generatingLegend ? 'Generating...' : 'Generate' }}
             </button>
           </div>
-          <div v-if="job.legend" class="detail-content legend-content" style="white-space: pre-wrap;">{{ job.legend }}</div>
+          <div v-if="job.legend" class="detail-content legend-content description-content" v-html="renderMarkdown(job.legend)"></div>
           <div v-else class="detail-content empty-text">No legend generated yet.</div>
         </section>
       </div>
