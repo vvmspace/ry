@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { marked } from 'marked';
+import markedKatex from 'marked-katex-extension';
+import 'katex/dist/katex.min.css';
+
+marked.use(markedKatex({ throwOnError: false }));
+
 const route = useRoute();
 const config = useRuntimeConfig();
 
