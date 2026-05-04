@@ -113,6 +113,6 @@ module.exports = [
   { method: 'GET',   pattern: PATCH_V1_RE,      handler: handleGetJob },
   { method: 'PATCH', pattern: PATCH_V1_RE,      handler: handlePatchJob },
   { method: 'GET',   pattern: CV_V1_RE,         handler: handleDownloadCv },
-  { method: 'PATCH', pattern: PATCH_LEGACY_RE,  handler: redirectToV1 },
+  { method: 'PATCH', pattern: PATCH_LEGACY_RE,  handler: handlePatchJob },
   { method: 'GET',   pattern: CV_LEGACY_RE,     handler: redirectCvToV1 },
 ];

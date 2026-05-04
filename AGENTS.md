@@ -262,10 +262,22 @@ All workers what use browser should save to state.json:
 ```
 If `browser.active` is true and `browser.lastUsage` is less than 10 minutes ago, then skip browser usage.
 
+## Jobs statuses
+
+- `pending` - just added from list, not processed yet
+- `saved` - parsed, title + vacancy + domain + company + url + applicationUrl + topTechAndSkills + whyAnswer + matchRate + coverLetter + greetingMessage + email
+- `generated` - cv generated, all fields filled
+- `started` - link opened
+- `applied` - job applied
+- `screening` - in screening
+- `interview` - interview
+- `cancelled` - cancelled
+- `error` - error
+- `expired` - expired
 
 ## API
 
-GET /api/v1/jobs
+### GET /api/v1/jobs
 
 list jobs ordered by:
 - status: interview -> screening -> started -> generated -> error -> saved -> pending -> applied -> cancelled -> expired
@@ -282,11 +294,22 @@ optional query params:
 - limit=100
 - skip=0
 
-PATCH /api/jobs/:_id
+### PATCH /api/jobs/:_id (deprecated), use as: PATCH /api/v1/jobs/:_id
 
-{ status: pending, saved, generated, started, applied, screening, interview, cancelled, expired }
+Body could contain any field of Job or partialy filled job. Only non-empty string fields are updated.
 
-# POST /api/v1/ai/ask/, optional: /api/v1/ai/ask/?applicationUrl=%includes%
+Example:
+
+```
+{
+  "status": "interview",
+  "legend": "I use FastAPI for backend, migrated from NestJS and Laravel. Personal experience with Spring Boot."
+}
+```
+
+Emits events like: job_updated({id, status, legend, ...})}
+
+### POST /api/v1/ai/ask/, optional: /api/v1/ai/ask/?applicationUrl=%includes%
 
 ```
 {

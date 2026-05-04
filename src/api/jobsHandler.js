@@ -1,5 +1,5 @@
 const JobPage = require("../models/jobPage");
-const { eventBus, JOB_STATUS_CHANGED } = require("../events/jobEvents");
+const { eventBus, JOB_STATUS_CHANGED, JOB_UPDATED } = require("../events/jobEvents");
 
 const STATUS_SORT_ORDER = {
   interview: 0,
@@ -116,19 +116,39 @@ async function listJobs(queryParams) {
 const ALLOWED_STATUSES = ["pending", "saved", "generated", "started", "applied", "screening", "interview", "cancelled", "error", "expired"];
 
 async function updateJobById(id, body) {
-  const status = body?.status;
-  if (!status || typeof status !== "string" || !ALLOWED_STATUSES.includes(status)) {
+  const updateData = {};
+  if (body && typeof body === 'object') {
+    for (const [key, value] of Object.entries(body)) {
+      if (typeof value === 'string' && value !== '') {
+        updateData[key] = value;
+      }
+    }
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return { error: "no valid fields to update", code: 400 };
+  }
+
+  if (updateData.status && !ALLOWED_STATUSES.includes(updateData.status)) {
     return { error: "invalid status", code: 400 };
   }
+
   const existing = await JobPage.findById(id).lean();
   if (!existing) return { error: "not found", code: 404 };
   const fromStatus = existing.status;
+
   const job = await JobPage.findByIdAndUpdate(
     id,
-    { status },
+    updateData,
     { returnDocument: "after", runValidators: true }
   ).lean();
-  eventBus.emit(JOB_STATUS_CHANGED, { jobId: id, fromStatus, toStatus: status });
+
+  if (updateData.status && fromStatus !== updateData.status) {
+    eventBus.emit(JOB_STATUS_CHANGED, { jobId: id, fromStatus, toStatus: updateData.status });
+  }
+
+  eventBus.emit(JOB_UPDATED, { id, ...updateData });
+
   return { job };
 }
 
