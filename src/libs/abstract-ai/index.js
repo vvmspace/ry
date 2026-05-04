@@ -197,6 +197,8 @@ class AbstractAI {
 
     // console.log(text, responseFormat);
 
+    console.log(data?.candidates?.[0]?.content?.parts);
+
     return text;
   }
 
