@@ -253,6 +253,22 @@ order by count of filters then by updatedAt desc
 1. gets 1 job with status `screening` or `interview` with `legend` not set (`legend` desc, `createdAt` desc) from DB
 2. Calls legeng generation for this job with _id
 
+## Best candidate worker
+
+1. gets 1 job with status `screening` or `interview` with `best_candidate` not set (`best_candidate` desc, `createdAt` desc) from DB
+2. Calls best candidate generation for this job with _id
+
+## Best candidate generation by job id:
+
+```
+generate_best_candidate(job_id){
+  // get job from db with _id:job_id
+  // parse description
+  // generate best candidate using prompts/best_candidate.md
+  // save job
+}
+```
+
 ## Legend generation by job id:
 
 ```
@@ -401,6 +417,7 @@ Separated by sections hidden on null or empty array/object values.
 
 Generatable sections should contain "generate" button:
 - legend
+- best_candidate
 
 Text fields support markdown format.
 

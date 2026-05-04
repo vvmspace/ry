@@ -47,6 +47,26 @@ async function generateLegend() {
   }
 }
 
+const generatingBestCandidate = ref(false);
+
+async function generateBestCandidate() {
+  if (!job.value || !job.value._id) return;
+  generatingBestCandidate.value = true;
+  const base = apiBase.value.replace(/\/$/, "");
+  try {
+    const res = await fetch(`${base}/api/v1/jobs/${job.value._id}/best_candidate`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    job.value = data;
+  } catch (e) {
+    alert(e instanceof Error ? e.message : "Failed to generate best candidate");
+  } finally {
+    generatingBestCandidate.value = false;
+  }
+}
+
 function renderMarkdown(text: any) {
   if (typeof text !== 'string') return String(text);
   // Optional: add any marked configuration here if needed
@@ -82,7 +102,7 @@ onMounted(() => {
       
       <div v-else-if="job" class="job-details-container">
         <div v-for="(value, key) in job" :key="key">
-          <section v-if="key !== 'legend' && value !== null && value !== undefined && value !== '' && key !== '_id' && key !== '__v' && key !== 'title'" class="detail-section">
+          <section v-if="key !== 'legend' && key !== 'bestCandidate' && value !== null && value !== undefined && value !== '' && key !== '_id' && key !== '__v' && key !== 'title'" class="detail-section">
             <h3 class="detail-label">{{ String(key).replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) }}</h3>
             
             <div v-if="key === 'applicationUrl' || key === 'url' || String(key).toLowerCase().includes('url')">
@@ -105,6 +125,17 @@ onMounted(() => {
           </div>
           <div v-if="job.legend" class="detail-content legend-content description-content" v-html="renderMarkdown(job.legend)"></div>
           <div v-else class="detail-content empty-text">No legend generated yet.</div>
+        </section>
+
+        <section class="detail-section legend-section">
+          <div class="legend-header">
+            <h3 class="detail-label">Best Candidate</h3>
+            <button @click="generateBestCandidate" :disabled="generatingBestCandidate" class="generate-btn">
+              {{ generatingBestCandidate ? 'Generating...' : 'Generate' }}
+            </button>
+          </div>
+          <div v-if="job.bestCandidate" class="detail-content legend-content description-content" v-html="renderMarkdown(job.bestCandidate)"></div>
+          <div v-else class="detail-content empty-text">No best candidate generated yet.</div>
         </section>
       </div>
     </main>
