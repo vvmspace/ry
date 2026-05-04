@@ -56,10 +56,36 @@ async function generateLegend(jobId) {
 
   const vacancyText = `Title: ${job.title}\nCompany: ${job.companyName}\nSalary: ${job.salary || 'N/A'}\n\nDescription:\n${job.description || ''}`;
 
+  let cvSentText = '';
+  const jsonUrl = job.cvJsonUrl || job.jsonUrl;
+  if (jsonUrl) {
+    try {
+      const res = await fetch(jsonUrl);
+      if (res.ok) {
+        const data = await res.json();
+        cvSentText = JSON.stringify(data, null, 2);
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch JSON CV from ${jsonUrl}:`, err.message);
+    }
+  } else if (job.cvHtmlUrl) {
+    try {
+      const res = await fetch(job.cvHtmlUrl);
+      if (res.ok) {
+        const html = await res.text();
+        const cheerio = require('cheerio');
+        const $ = cheerio.load(html);
+        cvSentText = $('body').text().replace(/\s+/g, ' ').trim();
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch HTML CV from ${job.cvHtmlUrl}:`, err.message);
+    }
+  }
+
   const result = await ai.ask(promptTemplate, 'local,gemma,gemini-2.5-flash', {
     description: vacancyText,
     cv: cvText,
-    cv_sent: '', // Assuming we don't have this or it's optional
+    cv_sent: cvSentText,
     cover_letter: job.coverLetter || '',
     why_answer: job.whyAnswer || ''
   });

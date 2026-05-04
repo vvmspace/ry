@@ -258,7 +258,10 @@ order by count of filters then by updatedAt desc
 ```
 generate_legend(job_id){
   // get job from db with _id:job_id
-  // generate legend from coverLetter + greetingMessage + whyAnswer + title + description using prompts/legend.md
+  // if cvHtmlUrl or cvJsonUrl is present
+  //   downloads cvHtml or cvJson (prefer cvJson)
+  //   parses cvHtml or cvJson
+  // generate legend from coverLetter + greetingMessage + whyAnswer + title + description + cv_sent (text from json or html) + cv from full_cv.md or full_cv.example.md (prefer full_cv.md) using prompts/legend.md
   // save job
 }
 ```
