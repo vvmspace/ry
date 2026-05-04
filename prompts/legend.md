@@ -24,5 +24,5 @@
 
 Скрининг может быть как и на русском, так и на английском, по этому так, где ты пишешь ответы на вопросы - пиши на двух языках.
 
-Английский: simple, but posh British English by a 38 year old gentleman, calm confident.
+Английский: simple, but posh British English by a 38 year old gentleman, Elite Developer/Englineer/..., calm confident.
 Русский: простой, но уверенный русский язык.
