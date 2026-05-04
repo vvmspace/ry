@@ -6,13 +6,32 @@ const fs = require('fs');
 const path = require('path');
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
-const { shouldSkip, setLastTs } = require("../libs/state");
+const { shouldSkip, setLastTs, getIterationsFromArgs } = require("../libs/state");
 const ai = require("../libs/abstract-ai");
+
+async function claimNextJobForRating() {
+  const job = await JobPage.findOneAndUpdate(
+    {
+      status: {
+        $nin: ['pending', 'expired', 'applied', 'screening', 'interview', 'error', 'saved', 'cancelled']
+      },
+      $or: [
+        { ratingStartedAt: { $exists: false } },
+        { ratingStartedAt: { $lt: new Date(Date.now() - 10 * 60 * 1000) } } // 10 min timeout
+      ]
+    },
+    { $set: { ratingStartedAt: new Date() } },
+    { returnDocument: 'after', sort: { updatedAt: 1 } }
+  );
+
+  return { job, noMoreJobs: !job && !(await JobPage.exists({
+    status: { $nin: ['pending', 'expired', 'applied', 'screening', 'interview', 'error', 'saved', 'cancelled'] }
+  })) };
+}
 
 async function runMatchRateWorker() {
   console.log('\x1b[36m\x1b[1m📊  MATCH RATE WORKER\x1b[0m');
 
-  // State keys: match_rate
   if (shouldSkip('MATCH_RATE_SUCCESS_INTERVAL', 'MATCH_RATE_ERROR_INTERVAL', 'match_rate')) {
     process.exit(0);
   }
@@ -20,7 +39,6 @@ async function runMatchRateWorker() {
   await connectMongo();
 
   try {
-    // 1. Get CV content
     let cvText = '';
     const cvPath = path.resolve(process.cwd(), 'full_cv.md');
     const cvExamplePath = path.resolve(process.cwd(), 'full_cv.example.md');
@@ -35,73 +53,102 @@ async function runMatchRateWorker() {
       throw new Error("No CV file found (full_cv.md or full_cv.example.md)");
     }
 
-    // 2. Load prompt template
     const promptPath = path.resolve(process.cwd(), 'prompts/rate.md');
     if (!fs.existsSync(promptPath)) {
       throw new Error(`Prompt file not found: ${promptPath}`);
     }
     const promptTemplate = fs.readFileSync(promptPath, 'utf8');
 
-    // 3. Find 1 job with status not 'pending' and not 'expired', ordered by oldest first
-    const job = await JobPage.findOne({
-      status: {
-        $nin: ['pending', 'expired', 'applied', 'screening', 'interview', 'error', 'saved', 'cancelled']
+    const iterations = getIterationsFromArgs();
+    const threads = iterations > 1 ? Math.min(iterations, 5) : 1;
+    console.log(`[matchRateWorker] Running ${iterations} iteration(s) with ${threads} thread(s)`);
+
+    let claimedCount = 0;
+    let successCount = 0;
+
+    const runWorker = async (workerId) => {
+      while (true) {
+        if (claimedCount >= iterations) break;
+
+        let job;
+        try {
+          const result = await claimNextJobForRating();
+          if (result.noMoreJobs) {
+            console.log(`[Worker ${workerId}] No more jobs found for match rate calculation.`);
+            break;
+          }
+          if (!result.job) {
+            // Race condition: another worker claimed the job. Retry.
+            continue;
+          }
+          job = result.job;
+        } catch (err) {
+          console.error(`[Worker ${workerId}] Failed to fetch/claim job from DB:`, err);
+          break;
+        }
+
+        claimedCount++;
+        console.log(`[Worker ${workerId}] Calculating match rate (${claimedCount}/${iterations}) for job: ${job.title} (${job.companyName})`);
+
+        try {
+          const vacancyText = `Title: ${job.title}\nCompany: ${job.companyName}\nSalary: ${job.salary}\n\nDescription:\n${job.description}`;
+          const schema = {
+            type: 'object',
+            properties: {
+              match_rate: { type: 'integer' },
+              comment: { type: 'string' },
+              icon: { type: 'string' }
+            },
+            required: ['match_rate', 'comment', 'icon']
+          };
+
+          const result = await ai.json(promptTemplate, schema, 'local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash', {
+            cv: cvText,
+            vacancy: vacancyText,
+            locations: (job.locations || []).join(', ')
+          });
+
+          if (result && typeof result.match_rate !== 'undefined') {
+            const rate = parseInt(result.match_rate, 10);
+            if (isNaN(rate)) {
+              throw new Error(`AI returned invalid match_rate: ${result.match_rate}`);
+            }
+            let icon = job.matchRate == rate ? '🍏' : job.matchRate < rate ? '🔥' : '🧊';
+            job.matchRate = rate;
+            job.matchRateComment = result.comment;
+            job.ratingStartedAt = undefined; // Clear lock
+            job.updatedAt = new Date();
+            await job.save();
+            console.log(`[Worker ${workerId}] ${icon} Successfully updated match rate: ${job.matchRate}% (${job.status}) for ${job.url}`);
+            successCount++;
+          } else {
+            throw new Error("AI response did not contain match_rate");
+          }
+        } catch (err) {
+          console.error(`[Worker ${workerId}] Match rate calculation failed for ${job.url}:`, err);
+          job.ratingStartedAt = undefined; // Clear lock to allow retry
+          await job.save();
+        }
       }
-    }).sort({ updatedAt: 1 });
-
-    if (!job) {
-      console.log("No jobs found for match rate calculation.");
-      setLastTs('error', 'match_rate');
-      return;
-    }
-
-    console.log(`Calculating match rate for job: ${job.title} (${job.companyName})`);
-
-    const vacancyText = `Title: ${job.title}\nCompany: ${job.companyName}\nSalary: ${job.salary}\n\nDescription:\n${job.description}`;
-
-    // 4. Use AI service with strict JSON Schema
-    const schema = {
-      type: 'object',
-      properties: {
-        match_rate: { type: 'integer' },
-        comment: { type: 'string' }
-      },
-      required: ['match_rate', 'comment']
     };
 
-    const result = await ai.json(promptTemplate, schema, 'local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash', {
-      cv: cvText,
-      vacancy: vacancyText,
-      locations: (job.locations || []).join(', ')
-    });
+    const workers = [];
+    for (let i = 0; i < threads; i++) {
+      workers.push(runWorker(i + 1));
+    }
+    await Promise.all(workers);
 
-    if (result && typeof result.match_rate !== 'undefined') {
-      const rate = parseInt(result.match_rate, 10);
-      if (isNaN(rate)) {
-        throw new Error(`AI returned invalid match_rate: ${result.match_rate}`);
-      }
-      // green apple if not changed
-      let icon = job.matchRate == rate ? '🍏' : job.matchRate < rate ? '🔥' : '🧊';
-      job.matchRate = rate;
-      job.matchRateComment = result.comment;
-      job.updatedAt = new Date(); // Force updatedAt update
-      await job.save();
-      console.log(`${icon} Successfully updated match rate: ${job.matchRate}% (${job.status}) for ${job.url}`);
-      if (result.comment) {
-        console.log(`💬 AI Comment: ${result.comment}`);
-      }
+    if (successCount > 0) {
       setLastTs('success', 'match_rate');
     } else {
-      console.log('[matchRateWorker] AI result:', result);
-      throw new Error("AI response did not contain match_rate");
+      setLastTs('error', 'match_rate');
     }
 
   } catch (err) {
-    console.error("Match Rate Worker failed:", err);
+    console.error("Match Rate Worker fatal error:", err);
     setLastTs('error', 'match_rate');
     process.exitCode = 1;
   } finally {
-    // Check if we are the main module to decide on disconnect
     if (require.main === module) {
       await mongoose.disconnect();
     }

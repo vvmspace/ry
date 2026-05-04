@@ -7,7 +7,7 @@ const path = require('path');
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
-const { shouldSkip, setLastTs } = require("../libs/state");
+const { shouldSkip, setLastTs, getIterationsFromArgs } = require("../libs/state");
 
 const PRIORITY_PATH = path.resolve(process.cwd(), 'priority.json');
 
@@ -134,15 +134,42 @@ async function generateCvForJob(job, options = {}) {
     }
   }, null, 2));
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  let res;
+  let retries = 3;
+  let delay = 2000;
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`generate_cv API error ${res.status}: ${text}`);
+  while (retries > 0) {
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) break;
+
+      const text = await res.text();
+      console.warn(`[generateCvForJob] API error ${res.status} (retries left: ${retries - 1}): ${text}`);
+
+      if (res.status === 429 || (res.status >= 500 && res.status < 600)) {
+        // Retry on rate limit or server errors
+        retries--;
+        if (retries === 0) throw new Error(`generate_cv API error ${res.status}: ${text}`);
+        console.log(`[generateCvForJob] Retrying in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+        delay *= 2.5; // Exponential backoff
+        continue;
+      } else {
+        // Fatal error, don't retry
+        throw new Error(`generate_cv API error ${res.status}: ${text}`);
+      }
+    } catch (err) {
+      if (retries === 0) throw err;
+      console.warn(`[generateCvForJob] Fetch error (retries left: ${retries - 1}): ${err.message}`);
+      retries--;
+      await new Promise(r => setTimeout(r, delay));
+      delay *= 2.5;
+    }
   }
 
   const data = await res.json();
@@ -174,6 +201,19 @@ async function generateCvForJob(job, options = {}) {
   return { cvUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, jsonUrl, data };
 }
 
+async function claimNextSavedJob(priority) {
+  const doc = await findNextSavedJob(priority);
+  if (!doc) return { job: null, noMoreJobs: true };
+
+  const job = await JobPage.findOneAndUpdate(
+    { _id: doc._id, status: 'saved' },
+    { $set: { status: 'generating', updatedAt: new Date() } },
+    { returnDocument: 'after' }
+  );
+
+  return { job, noMoreJobs: false };
+}
+
 async function runCvGenerationWorker() {
   console.log('\x1b[35m\x1b[1m🤖  CV GENERATION WORKER\x1b[0m');
   if (shouldSkip('GENERATED_SUCCESS_INTERVAL', 'GENERATED_ERROR_INTERVAL', 'generated')) {
@@ -182,49 +222,98 @@ async function runCvGenerationWorker() {
 
   await connectMongo();
 
-  let job;
+  const iterations = getIterationsFromArgs();
+  const threads = iterations > 1 ? Math.min(iterations, 5) : 1;
+  console.log(`[cvGenerationWorker] Running ${iterations} iteration(s) with ${threads} thread(s)`);
+
+  let claimedCount = 0;
+  let successCount = 0;
+
+  const runWorker = async (workerId) => {
+    // Stagger starts to reduce instantaneous load
+    if (workerId > 1) {
+      const staggerDelay = (workerId - 1) * 2000;
+      console.log(`[Worker ${workerId}] Staggering start by ${staggerDelay}ms...`);
+      await new Promise(r => setTimeout(r, staggerDelay));
+    }
+
+    while (true) {
+      if (claimedCount >= iterations) break;
+
+      let job;
+      try {
+        const priority = loadPriority('generate');
+        const result = await claimNextSavedJob(priority);
+        if (result.noMoreJobs) {
+          console.log(`[Worker ${workerId}] No more saved jobs found.`);
+          break;
+        }
+        if (!result.job) {
+          // Race condition: another worker claimed the job between find and update.
+          // Just continue to try and pick the next available job.
+          continue;
+        }
+        job = result.job;
+      } catch (err) {
+        console.error(`[Worker ${workerId}] Failed to fetch/claim job from DB:`, err);
+        break;
+      }
+
+      claimedCount++;
+      console.log(`[Worker ${workerId}] Generating CV for job (${claimedCount}/${iterations}): ${job.url}`);
+
+      try {
+        const { cvUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, jsonUrl } = await generateCvForJob(job);
+        if (!cvUrl) {
+          throw new Error("API did not return pdf_url");
+        }
+
+        job.cvUrl = cvUrl;
+        job.greetingMessage = greetingMessage;
+        if (job.matchRate === undefined || job.matchRate === null) {
+          job.matchRate = matchRate;
+        }
+        job.email = email;
+        job.topTechAndSkills = topTechAndSkills;
+        job.whyAnswer = whyAnswer;
+        if (jsonUrl) {
+          job.jsonUrl = buildCvUrl(jsonUrl);
+        }
+        job.status = "generated";
+        await job.save();
+
+        console.log(`[Worker ${workerId}] CV generated: ${cvUrl} | matchRate: ${matchRate ?? "n/a"}`);
+        successCount++;
+      } catch (err) {
+        console.error(`[Worker ${workerId}] CV generation failed for ${job.url}:`, err);
+        // Reset status to saved so it can be retried, or set to error? 
+        // Spec says "in case of error ... state.last.error.generated"
+        // Let's set it to 'saved' but maybe add a retry count or just let it be.
+        // Actually, to prevent infinite loops on same error job, 'error' status is safer.
+        job.status = "error";
+        await job.save();
+      }
+    }
+  };
+
   try {
-    const priority = loadPriority('generate');
-    job = await findNextSavedJob(priority);
+    const workers = [];
+    for (let i = 0; i < threads; i++) {
+      workers.push(runWorker(i + 1));
+    }
+    await Promise.all(workers);
+
+    if (successCount > 0) {
+      setLastTs('success', 'generated');
+    } else if (claimedCount === 0) {
+      // No jobs found at all
+      setLastTs('error', 'generated');
+    } else {
+      // Jobs found but all failed
+      setLastTs('error', 'generated');
+    }
   } catch (err) {
-    console.error("Failed to fetch job from DB:", err);
-    setLastTs('error', 'generated');
-    throw err;
-  }
-
-  if (!job) {
-    console.log("No saved jobs found. Exiting.");
-    setLastTs('error', 'generated');
-    return;
-  }
-
-  console.log(`Generating CV for job: ${job.url}`);
-
-  try {
-    const { cvUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, jsonUrl } = await generateCvForJob(job);
-    if (!cvUrl) {
-      throw new Error("API did not return pdf_url");
-    }
-
-    job.cvUrl = cvUrl;
-    job.greetingMessage = greetingMessage;
-    if (job.matchRate === undefined || job.matchRate === null) {
-      job.matchRate = matchRate;
-    }
-    job.email = email;
-    job.topTechAndSkills = topTechAndSkills;
-    job.whyAnswer = whyAnswer;
-    if (jsonUrl) {
-      job.jsonUrl = buildCvUrl(jsonUrl);
-    }
-    job.status = "generated";
-    await job.save();
-    console.log(`CV generated: ${cvUrl} | matchRate: ${matchRate ?? "n/a"}`);
-    console.log(formatLogTime());
-    console.log("");
-    setLastTs('success', 'generated');
-  } catch (err) {
-    console.error("CV generation failed:", err);
+    console.error("CV generation worker fatal error:", err);
     setLastTs('error', 'generated');
     throw err;
   } finally {

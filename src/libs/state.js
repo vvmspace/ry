@@ -105,4 +105,13 @@ function releaseBrowser() {
   writeState(state);
 }
 
-module.exports = { readState, writeState, setLastTs, shouldSkip, allocateBrowser, releaseBrowser };
+function getIterationsFromArgs() {
+  const args = process.argv.slice(2);
+  for (const arg of args) {
+    const match = arg.match(/^(?:n=)?(\d+)$/i);
+    if (match) return parseInt(match[1], 10);
+  }
+  return 1;
+}
+
+module.exports = { readState, writeState, setLastTs, shouldSkip, allocateBrowser, releaseBrowser, getIterationsFromArgs };

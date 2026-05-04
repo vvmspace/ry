@@ -6,13 +6,35 @@ const fs = require('fs');
 const path = require('path');
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
-const { shouldSkip, setLastTs } = require("../libs/state");
+const { shouldSkip, setLastTs, getIterationsFromArgs } = require("../libs/state");
 const ai = require("../libs/abstract-ai");
+
+async function claimNextJobForCoverLetter() {
+  const job = await JobPage.findOneAndUpdate(
+    {
+      status: { $in: ['saved', 'generated'] },
+      coverLetter: { $exists: false },
+      $or: [
+        { coverLetterStartedAt: { $exists: false } },
+        { coverLetterStartedAt: { $lt: new Date(Date.now() - 10 * 60 * 1000) } } // 10 min timeout
+      ]
+    },
+    { $set: { coverLetterStartedAt: new Date() } },
+    { returnDocument: 'after', sort: { matchRate: -1, createdAt: -1 } }
+  );
+
+  return { 
+    job, 
+    noMoreJobs: !job && !(await JobPage.exists({ 
+      status: { $in: ['saved', 'generated'] }, 
+      coverLetter: { $exists: false } 
+    })) 
+  };
+}
 
 async function runCoverLetterWorker() {
   console.log('\x1b[35m\x1b[1m✉️  COVER LETTER WORKER\x1b[0m');
 
-  // State keys: cover_letter
   if (shouldSkip('COVER_LETTER_SUCCESS_INTERVAL', 'COVER_LETTER_ERROR_INTERVAL', 'cover_letter')) {
     process.exit(0);
   }
@@ -20,7 +42,6 @@ async function runCoverLetterWorker() {
   await connectMongo();
 
   try {
-    // 1. Get CV content
     let cvText = '';
     const cvPath = path.resolve(process.cwd(), 'full_cv.md');
     const cvExamplePath = path.resolve(process.cwd(), 'full_cv.example.md');
@@ -35,77 +56,110 @@ async function runCoverLetterWorker() {
       throw new Error("No CV file found (full_cv.md or full_cv.example.md)");
     }
 
-    // 2. Load prompt template
     const promptPath = path.resolve(process.cwd(), 'prompts/cover_letter.md');
     if (!fs.existsSync(promptPath)) {
       throw new Error(`Prompt file not found: ${promptPath}`);
     }
     const promptTemplate = fs.readFileSync(promptPath, 'utf8');
 
-    // 3. Find 1 job with status 'saved' or 'generated' and no coverLetter yet
-    // Ordered by matchRate desc, createdAt desc
-    const job = await JobPage.findOne({
-      status: { $in: ['saved', 'generated'] },
-      coverLetter: { $exists: false }
-    }).sort({ matchRate: -1, createdAt: -1 });
+    const iterations = getIterationsFromArgs();
+    const threads = iterations > 1 ? Math.min(iterations, 5) : 1;
+    console.log(`[coverLetterWorker] Running ${iterations} iteration(s) with ${threads} thread(s)`);
 
-    if (!job) {
-      console.log("No jobs found for cover letter generation.");
-      setLastTs('error', 'cover_letter');
-      return;
-    }
+    let claimedCount = 0;
+    let successCount = 0;
 
-    console.log(`Generating cover letter for job: ${job.title} (${job.companyName}) [Rate: ${job.matchRate || 'N/A'}]`);
+    const runWorker = async (workerId) => {
+      // Stagger starts
+      if (workerId > 1) {
+        await new Promise(r => setTimeout(r, (workerId - 1) * 1500));
+      }
 
-    const vacancyText = `Title: ${job.title}\nCompany: ${job.companyName}\nSalary: ${job.salary}\n\nDescription:\n${job.description}`;
+      while (true) {
+        if (claimedCount >= iterations) break;
 
-    console.log(`[coverLetterWorker] Debug: CV length: ${cvText.length} chars`);
-    console.log(`[coverLetterWorker] Debug: Vacancy length: ${vacancyText.length} chars`);
+        let job;
+        try {
+          const result = await claimNextJobForCoverLetter();
+          if (result.noMoreJobs) {
+            console.log(`[Worker ${workerId}] No more jobs found for cover letter generation.`);
+            break;
+          }
+          if (!result.job) {
+            continue;
+          }
+          job = result.job;
+        } catch (err) {
+          console.error(`[Worker ${workerId}] Failed to fetch/claim job from DB:`, err);
+          break;
+        }
 
-    // 4. Use AI service with strict JSON Schema
-    const schema = {
-      type: 'object',
-      properties: {
-        reasoning: { type: 'string' },
-        cover_letter: { type: 'string' }
-      },
-      required: ['reasoning', 'cover_letter']
+        claimedCount++;
+        console.log(`[Worker ${workerId}] Generating cover letter (${claimedCount}/${iterations}) for: ${job.title} (${job.companyName})`);
+
+        try {
+          const vacancyText = `Title: ${job.title}\nCompany: ${job.companyName}\nSalary: ${job.salary}\n\nDescription:\n${job.description}`;
+          const schema = {
+            type: 'object',
+            properties: {
+              reasoning: { type: 'string' },
+              cover_letter: { type: 'string' }
+            },
+            required: ['reasoning', 'cover_letter']
+          };
+
+          let result;
+          let retries = 3;
+          let delay = 2000;
+
+          while (retries > 0) {
+            try {
+              result = await ai.json(
+                promptTemplate,
+                schema,
+                'local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash',
+                { cv: cvText, vacancy: vacancyText }
+              );
+              if (result && result.cover_letter) break;
+              throw new Error("AI response did not contain cover_letter");
+            } catch (err) {
+              retries--;
+              if (retries === 0) throw err;
+              console.warn(`[Worker ${workerId}] AI Error (retries left: ${retries}): ${err.message}. Retrying in ${delay}ms...`);
+              await new Promise(r => setTimeout(r, delay));
+              delay *= 2;
+            }
+          }
+
+          job.coverLetter = result.cover_letter.trim();
+          job.coverLetterStartedAt = undefined; // Clear lock
+          job.updatedAt = new Date();
+          await job.save();
+          
+          console.log(`[Worker ${workerId}] ✅ Successfully generated cover letter for: ${job.title}`);
+          successCount++;
+        } catch (err) {
+          console.error(`[Worker ${workerId}] Cover letter generation failed for ${job.url}:`, err);
+          job.coverLetterStartedAt = undefined; // Clear lock
+          await job.save();
+        }
+      }
     };
 
-    const result = await ai.json(
-      promptTemplate,
-      schema,
-      'local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash',
-      {
-        cv: cvText,
-        vacancy: vacancyText
-      }
-    );
+    const workers = [];
+    for (let i = 0; i < threads; i++) {
+      workers.push(runWorker(i + 1));
+    }
+    await Promise.all(workers);
 
-    if (result && result.cover_letter) {
-      if (result.reasoning) {
-        console.log('\x1b[36m' + '🔍  AI Reasoning & Strategy:' + '\x1b[0m');
-        console.log(result.reasoning);
-        console.log('\x1b[36m' + '─'.repeat(50) + '\x1b[0m');
-      }
-
-      job.coverLetter = result.cover_letter.trim();
-      job.updatedAt = new Date();
-      await job.save();
-      
-      console.log(`✅ Successfully generated cover letter for: ${job.title} at ${job.companyName}`);
-      console.log('\x1b[32m' + '📜  Final Cover Letter:' + '\x1b[0m');
-      console.log('\x1b[32m' + '─'.repeat(50) + '\x1b[0m');
-      console.log(job.coverLetter);
-      console.log('\x1b[32m' + '─'.repeat(50) + '\x1b[0m');
-      
+    if (successCount > 0) {
       setLastTs('success', 'cover_letter');
     } else {
-      throw new Error("AI response did not contain cover_letter");
+      setLastTs('error', 'cover_letter');
     }
 
   } catch (err) {
-    console.error("Cover Letter Worker failed:", err);
+    console.error("Cover Letter Worker fatal error:", err);
     setLastTs('error', 'cover_letter');
     process.exitCode = 1;
   } finally {

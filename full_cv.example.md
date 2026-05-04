@@ -89,7 +89,7 @@ Senior/Lead Full Stack Developer (Node + Rust, Python), Solution Architect with 
 - Team coordination, integration with partners, representing the team interests
 - Technologies: TypeScript, NodeJS, NestJS, NextJS, RabbitMQ, Postgres, MongoDB, MongoDB Atlas, Docker, GitHub actions, AWS EC2, a bit of Python, Rust and Dart/Flutter
 - Blockchain: Ethereum, EVM-compatible chains, NEAR Protocol, a bit of NearAI, Wallet Connect
-- AI: OpenAI, Qwen, Gemini, Cursor, Windsurf, Google Antigravity
+- AI: OpenAI, Qwen, Gemini, Cursor, Windsurf, Google Antigravity, VertextAI, Chatbots, Image Generation, RAG
 - Consulting, planning
 - Monitoring: Sentry, Grafana, Prometheus
 *(can’t tell too much, FrieNDA)*

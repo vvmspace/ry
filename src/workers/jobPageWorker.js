@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
-const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser } = require("../libs/state");
+const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser, getIterationsFromArgs } = require("../libs/state");
 const { checkUrlForExpiration, getCheckUrl } = require("./expirationWorker");
 
 const DEFAULT_APPLY_TIMEOUT_MS = 15000;
@@ -60,21 +60,7 @@ function resolveApplyTimeoutMs() {
     return parsed;
 }
 
-function resolveParseCountFromArgv() {
-    const defaultCount = 1;
-    const arg = process.argv.find((item) => typeof item === "string" && item.startsWith("--count="));
-    if (!arg) return defaultCount;
-
-    const raw = arg.slice("--count=".length);
-    const parsed = Number.parseInt(raw, 10);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-        console.warn(`[jobs:parse] Invalid --count="${raw}", fallback=${defaultCount}`);
-        return defaultCount;
-    }
-
-    return parsed;
-}
-
+// Using getIterationsFromArgs instead
 function withTimeout(promise, timeoutMs, label) {
     let timer;
     return Promise.race([
@@ -337,7 +323,7 @@ async function runJobPageWorker() {
     console.timeEnd(TIMER.BROWSER_LAUNCH);
 
     try {
-        const parseCount = resolveParseCountFromArgv();
+        const parseCount = getIterationsFromArgs();
         console.log(`[jobs:parse] count=${parseCount}`);
 
         const page = (await browser.pages())[0] || (await browser.newPage());
@@ -480,7 +466,6 @@ if (require.main === module) {
 module.exports = {
     extractJobDataFromHtml,
     resolveApplyTimeoutMs,
-    resolveParseCountFromArgv,
     resolveApplicationUrlFromApply,
     runJobPageWorker,
 };

@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
+const { getIterationsFromArgs } = require("../libs/state");
 
 const EXCLUDED_STATUSES = ["expired", "applied", "screening", "interview", "error"];
 
@@ -102,38 +103,43 @@ async function runExpirationWorker() {
   console.log("\x1b[34m\x1b[1m⏳  EXPIRATION WORKER\x1b[0m");
   await connectMongo();
 
+  const iterations = getIterationsFromArgs();
+  console.log(`[expirationWorker] Running ${iterations} iteration(s)`);
+
   try {
-    const job = await JobPage.findOne({
-      status: { $nin: EXCLUDED_STATUSES },
-    }).sort({ updatedAt: 1 });
+    for (let i = 0; i < iterations; i++) {
+      const job = await JobPage.findOne({
+        status: { $nin: EXCLUDED_STATUSES },
+      }).sort({ updatedAt: 1 });
 
-    if (!job) {
-      console.log("No eligible jobs found. Exiting.");
-      return;
-    }
+      if (!job) {
+        console.log("No eligible jobs found. Exiting.");
+        break;
+      }
 
-    const checkUrl = getCheckUrl(job);
-    if (!checkUrl) {
-      console.log(`Job ${job._id} has no URL to check, touching updatedAt only.`);
+      const checkUrl = getCheckUrl(job);
+      if (!checkUrl) {
+        console.log(`Job ${job._id} has no URL to check, touching updatedAt only.`);
+        job.updatedAt = new Date();
+        await job.save();
+        continue;
+      }
+
+      console.log(`Checking job ${job._id} -> ${checkUrl}`);
+      const { isExpired, statusCode, finalUrl, fetchError } = await checkUrlForExpiration(checkUrl);
+
+      if (fetchError) {
+        console.log(`Could not verify expiration (${fetchError}, URL: ${finalUrl || checkUrl})`);
+      } else if (isExpired) {
+        job.status = "expired";
+        console.log(`Marked as expired (HTTP ${statusCode}, final URL: ${finalUrl})`);
+      } else {
+        console.log(`Still active (HTTP ${statusCode}, final URL: ${finalUrl})`);
+      }
+
       job.updatedAt = new Date();
       await job.save();
-      return;
     }
-
-    console.log(`Checking job ${job._id} -> ${checkUrl}`);
-    const { isExpired, statusCode, finalUrl, fetchError } = await checkUrlForExpiration(checkUrl);
-
-    if (fetchError) {
-      console.log(`Could not verify expiration (${fetchError}, URL: ${finalUrl || checkUrl})`);
-    } else if (isExpired) {
-      job.status = "expired";
-      console.log(`Marked as expired (HTTP ${statusCode}, final URL: ${finalUrl})`);
-    } else {
-      console.log(`Still active (HTTP ${statusCode}, final URL: ${finalUrl})`);
-    }
-
-    job.updatedAt = new Date();
-    await job.save();
   } catch (err) {
     console.error("Expiration worker error:", err);
     throw err;

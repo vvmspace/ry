@@ -11,6 +11,8 @@ type Job = {
   applicationUrl?: string;
   status: JobStatus;
   cvUrl?: string;
+  cvPdfUrl?: string;
+  cvHtmlUrl?: string;
   greetingMessage?: string;
   email?: string;
   topTechAndSkills?: string;
@@ -41,6 +43,7 @@ const linkedinProfile = ref("");
 const githubProfile = ref("");
 const b2bText = ref("");
 const blinkingButton = ref<string | null>(null);
+const autoStart = ref(false);
 
 const jobs = ref<Job[]>([]);
 const loading = ref(true);
@@ -194,6 +197,9 @@ function getVacancyUrl(job: Job) {
 }
 
 function getCvDownloadUrl(job: Job) {
+  if (job.cvPdfUrl) return job.cvPdfUrl;
+  if (job.cvUrl && (job.cvUrl.startsWith('http://') || job.cvUrl.startsWith('https://'))) return job.cvUrl;
+
   let base = apiBase.value.replace(/\/$/, "");
   
   // If apiBase is empty, use current origin
@@ -324,7 +330,7 @@ async function updateStatus(id: string, status: string) {
 }
 
 async function handleVacancyClick(job: Job, event: MouseEvent) {
-  if (job.status === "generated") {
+  if (autoStart.value || job.status === "generated") {
     event.preventDefault();
     await updateStatus(job._id, "started");
     // Open the link after updating status
@@ -541,6 +547,10 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="toolbar">
+          <label style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" v-model="autoStart" />
+            Auto-start
+          </label>
           <label>
             API base
             <input
@@ -663,7 +673,7 @@ onUnmounted(() => {
                 </span>
               </div>
               <div class="position-cell">
-                <strong>{{ job.title || "—" }}</strong>
+                <strong><NuxtLink :to="`/jobs/${job._id}`" target="_blank" class="job-detail-link">{{ job.title || "—" }}</NuxtLink></strong>
                 <small v-if="job.topTechAndSkills" class="tech-skills">{{ job.topTechAndSkills }}</small>
               </div>
               <div class="company-cell">
@@ -806,9 +816,9 @@ onUnmounted(() => {
                 </button>
                 <span v-if="!job.greetingMessage && !job.email && !job.whyAnswer && !job.coverLetter" class="text-muted">—</span>
               </div>
-              <div>
+              <div class="cv-actions">
                 <a
-                  v-if="job.cvUrl"
+                  v-if="job.cvUrl || job.cvPdfUrl"
                   :href="getCvDownloadUrl(job)"
                   :download="getCvFileName(job)"
                   class="cv-link action-link"
@@ -833,7 +843,20 @@ onUnmounted(() => {
                     />
                   </svg>
                 </a>
-                <span v-else class="text-muted">—</span>
+                <a
+                  v-if="job.cvHtmlUrl"
+                  :href="job.cvHtmlUrl"
+                  target="_blank"
+                  rel="noopener"
+                  class="cv-link html-link action-link"
+                  aria-label="View CV HTML"
+                  title="View CV HTML"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M16 18l6-6-6-6M8 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+                  </svg>
+                </a>
+                <span v-if="!job.cvUrl && !job.cvPdfUrl && !job.cvHtmlUrl" class="text-muted">—</span>
               </div>
             </div>
           </div>
@@ -843,7 +866,7 @@ onUnmounted(() => {
           <article v-for="job in filteredJobs" :key="job._id" class="job-card">
             <div class="job-card-head">
               <p class="card-kicker">{{ job.status }}</p>
-              <h2>{{ job.title || "—" }}</h2>
+              <h2><NuxtLink :to="`/jobs/${job._id}`" target="_blank" class="job-detail-link">{{ job.title || "—" }}</NuxtLink></h2>
               <small v-if="job.topTechAndSkills" class="tech-skills">{{ job.topTechAndSkills }}</small>
             </div>
 
@@ -1011,33 +1034,48 @@ onUnmounted(() => {
 
             <div class="row">
               <span class="label">CV</span>
-              <a
-                v-if="job.cvUrl"
-                :href="getCvDownloadUrl(job)"
-                :download="getCvFileName(job)"
-                class="cv-link action-link"
-                aria-label="Download CV PDF"
-                title="Download CV PDF"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                  <path
-                    d="M14 3v5h5M8 16h8M8 12h3"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.8"
-                  />
-                </svg>
-              </a>
-              <span v-else class="text-muted">—</span>
+              <div class="cv-actions">
+                <a
+                  v-if="job.cvUrl || job.cvPdfUrl"
+                  :href="getCvDownloadUrl(job)"
+                  :download="getCvFileName(job)"
+                  class="cv-link action-link"
+                  aria-label="Download CV PDF"
+                  title="Download CV PDF"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                    <path
+                      d="M14 3v5h5M8 16h8M8 12h3"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                </a>
+                <a
+                  v-if="job.cvHtmlUrl"
+                  :href="job.cvHtmlUrl"
+                  target="_blank"
+                  rel="noopener"
+                  class="cv-link html-link action-link"
+                  aria-label="View CV HTML"
+                  title="View CV HTML"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M16 18l6-6-6-6M8 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+                  </svg>
+                </a>
+                <span v-if="!job.cvUrl && !job.cvPdfUrl && !job.cvHtmlUrl" class="text-muted">—</span>
+              </div>
             </div>
           </article>
         </div>
@@ -1440,6 +1478,27 @@ onUnmounted(() => {
 
 .text-muted {
   color: var(--text-muted);
+}
+
+.job-detail-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.job-detail-link:hover {
+  text-decoration: underline;
+  color: #7dd3fc;
+}
+
+.cv-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.html-link {
+  background: linear-gradient(135deg, #3dd9b4, #7dd3fc);
 }
 
 .rate-cell {

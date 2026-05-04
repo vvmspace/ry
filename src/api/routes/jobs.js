@@ -20,6 +20,23 @@ async function handleListJobs(req, res) {
   }
 }
 
+async function handleGetJob(req, res, params) {
+  try {
+    const job = await getJobById(params.id);
+    if (!job) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'not found' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(job));
+  } catch (err) {
+    console.error(err);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
+
 async function handlePatchJob(req, res, params) {
   let body;
   try {
@@ -93,6 +110,7 @@ function redirectCvToV1(req, res, params) {
 
 module.exports = [
   { method: 'GET',   pattern: '/api/v1/jobs',  handler: handleListJobs },
+  { method: 'GET',   pattern: PATCH_V1_RE,      handler: handleGetJob },
   { method: 'PATCH', pattern: PATCH_V1_RE,      handler: handlePatchJob },
   { method: 'GET',   pattern: CV_V1_RE,         handler: handleDownloadCv },
   { method: 'PATCH', pattern: PATCH_LEGACY_RE,  handler: redirectToV1 },

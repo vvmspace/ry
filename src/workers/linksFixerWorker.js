@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
-const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser } = require("../libs/state");
+const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser, getIterationsFromArgs } = require("../libs/state");
 
 const DEFAULT_INTERVAL_SECONDS = 0;
 const SKIP_STATE_KEY = "fixed";
@@ -33,83 +33,90 @@ async function runLinksFixerWorker() {
   let browser;
 
   try {
-    const job = await JobPage.findOne({
-      applicationUrl: { $regex: LOGIN_HOST, $options: "i" },
-      status: { $nin: ["applied", "screening", "interview", "expired", "error"] },
-    })
-      .sort({ matchRate: -1, createdAt: -1 });
+    const iterations = getIterationsFromArgs();
+    console.log(`[linksFixerWorker] Running ${iterations} iteration(s)`);
 
-    if (!job) {
-      console.log("No job with a login redirect application URL found. Exiting.");
-      setLastTs("error", SKIP_STATE_KEY);
-      return;
-    }
+    for (let i = 0; i < iterations; i++) {
+      const job = await JobPage.findOne({
+        applicationUrl: { $regex: LOGIN_HOST, $options: "i" },
+        status: { $nin: ["applied", "screening", "interview", "expired", "error"] },
+      })
+        .sort({ matchRate: -1, createdAt: -1 });
 
-    console.log(`Fixing application link for job ${job.url}`);
-
-    if (!allocateBrowser()) {
-      console.log("Browser in use, skipping...");
-      return;
-    }
-
-    browser = await puppeteer.launch({
-      userDataDir: process.env.USER_DIR || "userdir",
-      headless: true,
-      defaultViewport: { width: 1280, height: 720 },
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    const page = (await browser.pages())[0] || (await browser.newPage());
-    page.on("console", (msg) => {
-      if (msg.type() === "error") {
-        console.error("[browser console][error]", msg.text());
+      if (!job) {
+        console.log("No job with a login redirect application URL found. Exiting.");
+        setLastTs("error", SKIP_STATE_KEY);
+        break;
       }
-    });
 
-    await page.goto(job.url, { waitUntil: "networkidle2" });
+      console.log(`Fixing application link for job ${job.url}`);
 
-    const applyButton = await page.$("form[action*='/apply'] button");
-    let applicationUrl = job.applicationUrl;
+      if (!browser) {
+        if (!allocateBrowser()) {
+          console.log("Browser in use, skipping...");
+          return;
+        }
 
-    if (applyButton) {
-      const newPagePromise = new Promise((resolve) => browser.once("targetcreated", resolve));
-      console.log("Clicking apply to refresh the application URL...");
-      await applyButton.click();
+        browser = await puppeteer.launch({
+          userDataDir: process.env.USER_DIR || "userdir",
+          headless: true,
+          defaultViewport: { width: 1280, height: 720 },
+          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        });
+      }
 
-      const target = await newPagePromise;
-      if (target) {
-        const appPage = await target.page();
-        if (appPage) {
-          await appPage.waitForNavigation({ waitUntil: "networkidle2" }).catch(() => {});
-          applicationUrl = appPage.url();
-          console.log(`Captured redirected application URL: ${applicationUrl}`);
-          await appPage.close();
+      const page = (await browser.pages())[0] || (await browser.newPage());
+      page.on("console", (msg) => {
+        if (msg.type() === "error") {
+          console.error("[browser console][error]", msg.text());
+        }
+      });
+
+      await page.goto(job.url, { waitUntil: "networkidle2" });
+
+      const applyButton = await page.$("form[action*='/apply'] button");
+      let applicationUrl = job.applicationUrl;
+
+      if (applyButton) {
+        const newPagePromise = new Promise((resolve) => browser.once("targetcreated", resolve));
+        console.log("Clicking apply to refresh the application URL...");
+        await applyButton.click();
+
+        const target = await newPagePromise;
+        if (target) {
+          const appPage = await target.page();
+          if (appPage) {
+            await appPage.waitForNavigation({ waitUntil: "networkidle2" }).catch(() => {});
+            applicationUrl = appPage.url();
+            console.log(`Captured redirected application URL: ${applicationUrl}`);
+            await appPage.close();
+          } else {
+            console.error("Apply target did not expose a page instance.");
+          }
         } else {
-          console.error("Apply target did not expose a page instance.");
+          console.error("Clicking apply did not spawn a new target.");
         }
       } else {
-        console.error("Clicking apply did not spawn a new target.");
+        console.warn("Apply button not found on the job page.");
       }
-    } else {
-      console.warn("Apply button not found on the job page.");
-    }
 
-    const shouldFallbackToJobUrl = !applicationUrl || applicationUrl.toLowerCase().includes(LOGIN_HOST);
-    const finalUrl = shouldFallbackToJobUrl ? job.url : applicationUrl;
+      const shouldFallbackToJobUrl = !applicationUrl || applicationUrl.toLowerCase().includes(LOGIN_HOST);
+      const finalUrl = shouldFallbackToJobUrl ? job.url : applicationUrl;
 
-    if (finalUrl) {
-      job.applicationUrl = finalUrl;
-      try {
-        const parsed = new URL(finalUrl);
-        job.domain = parsed.hostname;
-      } catch (err) {
-        console.error("Failed to parse domain from application URL", err);
+      if (finalUrl) {
+        job.applicationUrl = finalUrl;
+        try {
+          const parsed = new URL(finalUrl);
+          job.domain = parsed.hostname;
+        } catch (err) {
+          console.error("Failed to parse domain from application URL", err);
+        }
       }
-    }
 
-    await job.save();
-    console.log(`Updated application URL for job ${job.url}`);
-    setLastTs("success", SKIP_STATE_KEY);
+      await job.save();
+      console.log(`Updated application URL for job ${job.url}`);
+      setLastTs("success", SKIP_STATE_KEY);
+    }
   } catch (err) {
     console.error("Links fixer worker error:", err);
     setLastTs("error", SKIP_STATE_KEY);

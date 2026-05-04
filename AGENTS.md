@@ -51,6 +51,14 @@ Stores questions and how often they appears like:
 
 When application worker founds question what he can't answer - he adds it or increments count.
 
+## Workers launch params
+
+Worker command should contain `-- [n]` parameter to process N iterations. If `n` is not provided, process 1 iteration.
+
+```
+npm run worker:name -- [n=1]
+```
+
 ## Jobs List Parser Worker
 
 Check optional PENDING_SUCCESS_INTERVAL, PENDING_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - PENDING_SUCCESS_INTERVAL) < inSeconds(state.last.success.pending) or NOW_S - PENDING_ERROR_INTERVAL) < inSeconds(state.last.error.pending) then process.exit();
@@ -159,12 +167,22 @@ If there are more than 1 key for provider, we should use the random key from the
 
 ## Match Rate Worker
 
+### Multithreading support
+
+5 threads max if n is provided (like `n=5`), 1 if not.
+
+
 If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
 - get 1 cv: `updatedAt` asc
 - use `prompts/rate.md` + ai service + cv text + vacancy text + `local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`
 - save `match_rate` and `updatedAt`
 
 ## Cover Letter Generation Worker
+
+### Multithreading support
+
+5 threads max if n is provided (like `n=5`), 1 if not.
+
 
 If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
 - get 1 cv: `match_rate` desc, `createdAt` desc, status: `saved`,`generated`
@@ -173,6 +191,10 @@ If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
 
 
 ## CV Generation Worker
+
+### Multithreading support
+
+5 threads max if n is provided (like `n=5`), 1 if not.
 
 0. Check optional GENERATED_SUCCESS_INTERVAL, GENERATED_ERROR_INTERVAL (in seconds) from environment/.env and state.json. If (NOW_S - GENERATED_SUCCESS_INTERVAL) < inSeconds(state.last.success.generated) or NOW_S - GENERATED_ERROR_INTERVAL) < inSeconds(state.last.error.generated) then process.exit();
 
@@ -304,6 +326,7 @@ List of vacancies. Adaptive: table like divs on wide screen, cards on mobile.
 Auto-refresh with select interval: off (default), 5s, 10s, 30s, 1m, 5m, 10m, 30m
 Clickable filter by status
 Fast copy miniblock: LinkedIn, GitHub from LINKEDIN_PROFILE and GITHUB_PROFILE as icons
+Auto-start checkbox: if checked, on click on vacancy link set status 'started' and open link
 
 Search by first 3 letters:
 - everywhere: ~JSON.stringify(...).includes and separately:
@@ -318,10 +341,17 @@ Fields:
 - salary: text
 - domain (top level: jobs.lever.co -> lever.co, jobs.remoteok.com -> remoteok.com, ...)
 - status: select box with statuses, call update API on change and fetch vacancies list
-- link to vacancy (applicationUrl), set 'started' status on click
+- link to vacancy (applicationUrl), set 'started' status on click if auto-start checkbox is checked
 - copy: icons buttons: greeting_message, cover_letter, email, why_answer if provided
 - link to download CV: PDF icon, download on click, equals to `cvUrl || cvPdfUrl`
 - link to HTML CV: HTML icon, view in new tab, equals to `cvHtmlUrl` if provided
+- link to /jobs/:id page: opens in new tab
+
+### /jobs/:id
+
+Show one job full data like the job object.
+Separated by sections hidden on null values.
+
 
 ## Deployment: github on push githook from local machine
 

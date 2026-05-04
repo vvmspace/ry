@@ -7,7 +7,7 @@ const path = require('path');
 
 const { connectMongo } = require('../db/mongoose');
 const JobPage = require('../models/jobPage');
-const { allocateBrowser, releaseBrowser } = require('../libs/state');
+const { allocateBrowser, releaseBrowser, getIterationsFromArgs } = require('../libs/state');
 const { b2b } = require('../../constants/text.constants');
 
 const QUESTIONS_PATH = path.resolve(process.cwd(), 'questions.json');
@@ -115,53 +115,56 @@ async function runAshbyApplyWorker() {
   await connectMongo();
   log('MongoDB connected.');
 
-  // 1. Pick a random eligible job
-  step(1, 'Fetching eligible generated ashby jobs...');
-  const jobs = await JobPage.find({
-    status: 'generated',
-    domain: /jobs\.ashbyhq\.com/i,
-    $or: [{ manual: false }, { manual: null }, { manual: { $exists: false } }],
-  });
-  log(`Found ${jobs.length} eligible job(s).`);
+  const iterations = getIterationsFromArgs();
+  console.log(`[ashbyApplyWorker] Running ${iterations} iteration(s)`);
 
-  if (!jobs.length) {
-    log('No eligible generated ashby jobs found. Exiting.');
-    await mongoose.disconnect();
-    return;
-  }
-
-  const job = jobs[Math.floor(Math.random() * jobs.length)];
-  log(`Selected job: "${job.title}" | ${job.applicationUrl || job.url}`);
-
-  const headless = process.env.ASHBY_HEADLESS !== 'false';
-  log(`Launching browser (headless=${headless})...`);
-
-  const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-  const viewport = { width: randInt(1040, 1340), height: randInt(760, 900) };
-  log(`Viewport: ${viewport.width}×${viewport.height}`);
-
-  if (!allocateBrowser()) {
-    log("Browser in use, skipping...");
-    await mongoose.disconnect();
-    return;
-  }
-
-  const browser = await puppeteer.launch({
-    userDataDir: process.env.USER_DIR || 'userdir',
-    headless,
-    defaultViewport: viewport,
-    executablePath: process.env.CHROME_PATH || undefined,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-blink-features=AutomationControlled',
-      '--disable-infobars',
-      '--window-size=' + viewport.width + ',' + viewport.height,
-    ],
-  });
-  log('Browser launched.');
-
+  let browser;
   try {
+    for (let i = 0; i < iterations; i++) {
+      step(1, `--- Iteration ${i + 1}/${iterations} --- Fetching eligible generated ashby jobs...`);
+      const jobs = await JobPage.find({
+        status: 'generated',
+        domain: /jobs\.ashbyhq\.com/i,
+        $or: [{ manual: false }, { manual: null }, { manual: { $exists: false } }],
+      });
+      log(`Found ${jobs.length} eligible job(s).`);
+
+      if (!jobs.length) {
+        log('No eligible generated ashby jobs found. Exiting.');
+        break;
+      }
+
+      const job = jobs[Math.floor(Math.random() * jobs.length)];
+      log(`Selected job: "${job.title}" | ${job.applicationUrl || job.url}`);
+
+      if (!browser) {
+        const headless = process.env.ASHBY_HEADLESS !== 'false';
+        log(`Launching browser (headless=${headless})...`);
+
+        const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const viewport = { width: randInt(1040, 1340), height: randInt(760, 900) };
+        log(`Viewport: ${viewport.width}×${viewport.height}`);
+
+        if (!allocateBrowser()) {
+          log("Browser in use, skipping...");
+          break;
+        }
+
+        browser = await puppeteer.launch({
+          userDataDir: process.env.USER_DIR || 'userdir',
+          headless,
+          defaultViewport: viewport,
+          executablePath: process.env.CHROME_PATH || undefined,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-infobars',
+            '--window-size=' + viewport.width + ',' + viewport.height,
+          ],
+        });
+        log('Browser launched.');
+      }
     const page = (await browser.pages())[0] || (await browser.newPage());
 
     // Stealth: patch navigator.webdriver and user-agent
@@ -222,8 +225,8 @@ async function runAshbyApplyWorker() {
       log('Job page not found. Setting status to expired.');
       job.status = 'expired';
       await job.save();
-      log('Job saved as expired. Exiting.');
-      return;
+      log('Job saved as expired. Continuing to next iteration.');
+      continue;
     }
     log('Page looks valid, continuing.');
 
@@ -339,8 +342,8 @@ async function runAshbyApplyWorker() {
       await job.save();
       log('Job marked as manual. Updating questions.json...');
       unknownRequired.forEach(f => addQuestion(f.labelText));
-      log('questions.json updated. Exiting.');
-      return;
+      log('questions.json updated. Continuing to next iteration.');
+      continue;
     }
     log('All required fields are known, proceeding to fill.');
 
@@ -451,8 +454,8 @@ async function runAshbyApplyWorker() {
     }
     await job.save();
 
-    log('Done.');
-
+    log(`Finished iteration ${i + 1}.`);
+    } // end for
   } finally {
     log('Closing browser...');
     if (typeof browser !== 'undefined') {

@@ -52,6 +52,8 @@ const jobPageSchema = new mongoose.Schema(
     benefits: [String],
     additional_questions: [String],
     manual: { type: Boolean, default: false },
+    ratingStartedAt: Date,
+    coverLetterStartedAt: Date,
   },
   {
     timestamps: true,

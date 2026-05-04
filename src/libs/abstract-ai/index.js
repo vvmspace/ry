@@ -195,7 +195,7 @@ class AbstractAI {
       responseFormat === 'json' ? isValidJson(p.text) : true
     )?.[0]?.text;
 
-    console.log(text, responseFormat);
+    // console.log(text, responseFormat);
 
     return text;
   }

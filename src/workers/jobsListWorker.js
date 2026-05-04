@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 
 const { connectMongo } = require("../db/mongoose");
 const JobPage = require("../models/jobPage");
-const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser } = require("../libs/state");
+const { shouldSkip, setLastTs, allocateBrowser, releaseBrowser, getIterationsFromArgs } = require("../libs/state");
 
 function parseSearchUrls(envValue) {
   const raw = envValue ?? process.env.REMOTEYEAH_SEARCH_URLS;
@@ -130,41 +130,50 @@ async function runJobsListWorker() {
 
   await connectMongo();
 
-  if (!allocateBrowser()) {
-    console.log("Browser in use, skipping...");
-    await mongoose.disconnect();
-    return;
-  }
+  const iterations = getIterationsFromArgs();
+  console.log(`[jobsListWorker] Running ${iterations} iteration(s)`);
 
-  const browser = await puppeteer.launch({
-    userDataDir: process.env.USER_DIR || "userdir",
-    headless: true,
-    defaultViewport: {
-      width: 1280,
-      height: 720,
-    },
-    args: ["--no-sandbox", "--disable-setuid-sandbox"]
-  });
-
+  let browser;
   try {
-    const page = (await browser.pages())[0] || (await browser.newPage());
+    for (let i = 0; i < iterations; i++) {
+      console.log(`--- Iteration ${i + 1}/${iterations} ---`);
+      if (!browser) {
+        if (!allocateBrowser()) {
+          console.log("Browser in use, skipping...");
+          await mongoose.disconnect();
+          return;
+        }
 
-    let totalFound = 0;
-    let totalSaved = 0;
+        browser = await puppeteer.launch({
+          userDataDir: process.env.USER_DIR || "userdir",
+          headless: true,
+          defaultViewport: {
+            width: 1280,
+            height: 720,
+          },
+          args: ["--no-sandbox", "--disable-setuid-sandbox"]
+        });
+      }
 
-    for (const url of searchUrls) {
-      console.log(`Parsing ${url} ...`);
-      const { found, saved } = await parseSearchPage(page, url);
-      console.log(`${url}: found=${found}, saved=${saved}`);
-      totalFound += found;
-      totalSaved += saved;
-    }
+      const page = (await browser.pages())[0] || (await browser.newPage());
 
-    console.log(`Total found: ${totalFound}, total saved: ${totalSaved}`);
-    if (totalSaved === 0) {
-      setLastTs('error', 'pending');
-    } else {
-      setLastTs('success', 'pending');
+      let totalFound = 0;
+      let totalSaved = 0;
+
+      for (const url of searchUrls) {
+        console.log(`Parsing ${url} ...`);
+        const { found, saved } = await parseSearchPage(page, url);
+        console.log(`${url}: found=${found}, saved=${saved}`);
+        totalFound += found;
+        totalSaved += saved;
+      }
+
+      console.log(`Total found: ${totalFound}, total saved: ${totalSaved}`);
+      if (totalSaved === 0) {
+        setLastTs('error', 'pending');
+      } else {
+        setLastTs('success', 'pending');
+      }
     }
   } catch (err) {
     setLastTs('error', 'pending');
