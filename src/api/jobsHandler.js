@@ -152,6 +152,41 @@ async function updateJobById(id, body) {
   return { job };
 }
 
+async function createJob(body) {
+  const jobData = {
+    manual: true,
+  };
+  
+  if (body && typeof body === 'object') {
+    for (const [key, value] of Object.entries(body)) {
+      if (value !== undefined && value !== null && value !== '') {
+        // Special handling for vacancyText -> description mapping if needed, 
+        // but let's stick to the model names. 
+        // The prompt says vacancyText, but the model has description.
+        if (key === 'vacancyText') {
+          jobData.description = value;
+        } else {
+          jobData[key] = value;
+        }
+      }
+    }
+  }
+
+  if (!jobData.url) {
+    // If url is not provided, use applicationUrl if it looks like a full URL, 
+    // or generate a unique one.
+    jobData.url = jobData.applicationUrl || `manual-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  }
+
+  if (!jobData.status) {
+    jobData.status = 'saved';
+  }
+
+  const job = new JobPage(jobData);
+  await job.save();
+  return { job: job.toObject() };
+}
+
 async function getJobById(id) {
   return JobPage.findById(id).lean();
 }
@@ -161,6 +196,7 @@ module.exports = {
   buildJobsFilter,
   listJobs,
   updateJobById,
+  createJob,
   getJobById,
   parsePositiveInt,
   ALLOWED_STATUSES,

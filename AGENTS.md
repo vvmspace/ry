@@ -428,6 +428,19 @@ Fields:
 - link to HTML CV: HTML icon, view in new tab, equals to `cvHtmlUrl` if provided
 - link to /jobs/:id page: opens in new tab
 
+### /jobs/new
+
+Form to add new job manually (all fields are optional, focus on application url, title and vacancy_text):
+- applicationUrl
+- vacancyText
+- title
+- companyName
+- salary
+- topTechAndSkills
+- status: saved as default
+- cvHtmlUrl
+- ...
+
 ### /jobs/:id (job page)
 
 Show one job full data like the job object.

@@ -197,8 +197,6 @@ function getVacancyUrl(job: Job) {
 }
 
 function getCvDownloadUrl(job: Job) {
-  if (job.cvPdfUrl) return job.cvPdfUrl;
-  if (job.cvUrl && (job.cvUrl.startsWith('http://') || job.cvUrl.startsWith('https://'))) return job.cvUrl;
 
   let base = apiBase.value.replace(/\/$/, "");
   
@@ -482,7 +480,15 @@ onUnmounted(() => {
       <section class="hero">
         <div>
           <p class="eyebrow">RemoteYeah Tracker</p>
-          <h1>Vacancies</h1>
+          <div class="hero-header">
+            <h1>Vacancies</h1>
+            <NuxtLink to="/jobs/new" class="new-job-btn">
+              <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16">
+                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              New Job
+            </NuxtLink>
+          </div>
           <p class="hero-copy">Generated CVs stay pinned at the top. Filter fast, update status inline, and open the application page directly.</p>
           
           <div v-if="linkedinProfile || githubProfile || b2bText" class="profile-links">
@@ -1132,6 +1138,34 @@ onUnmounted(() => {
   margin: 0;
   font-size: clamp(2.2rem, 6vw, 4.2rem);
   line-height: 0.95;
+}
+
+.hero-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.new-job-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, #3dd9b4, #7dd3fc);
+  color: #07111b;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(61, 217, 180, 0.25);
+}
+
+.new-job-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(61, 217, 180, 0.35);
+  filter: brightness(1.05);
 }
 
 .hero-copy {
