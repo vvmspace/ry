@@ -15,6 +15,7 @@ const form = reactive({
   topTechAndSkills: "",
   status: "saved",
   cvHtmlUrl: "",
+  cvGenerationComment: "",
 });
 
 const loading = ref(false);
@@ -154,6 +155,16 @@ async function handleSubmit() {
               type="url"
               placeholder="https://..."
             />
+          </div>
+
+          <div class="form-group full-width">
+            <label for="cvGenerationComment">CV Generation Instructions / Comment</label>
+            <textarea
+              id="cvGenerationComment"
+              v-model="form.cvGenerationComment"
+              rows="3"
+              placeholder="e.g. Focus on my Rust experience and AI agent projects..."
+            ></textarea>
           </div>
         </div>
 

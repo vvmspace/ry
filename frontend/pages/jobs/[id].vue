@@ -108,6 +108,25 @@ async function generateBestCandidate() {
   }
 }
 
+const generatingCv = ref(false);
+async function generateCv() {
+  if (!job.value || !job.value._id) return;
+  generatingCv.value = true;
+  const base = apiBase.value.replace(/\/$/, "");
+  try {
+    const res = await fetch(`${base}/api/v1/jobs/${job.value._id}/cv`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    job.value = data;
+  } catch (e) {
+    alert(e instanceof Error ? e.message : "Failed to generate CV");
+  } finally {
+    generatingCv.value = false;
+  }
+}
+
 function renderMarkdown(text: any) {
   if (!text) return "";
   if (typeof text !== 'string') return String(text);
@@ -118,7 +137,7 @@ function formatLabel(key: string) {
   return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
 }
 
-const excludedKeys = ['_id', '__v', 'createdAt', 'updatedAt', 'title', 'legendStartedAt', 'bestCandidateStartedAt', 'screeningQuestionsAnswersStartedAt', 'ratingStartedAt', 'coverLetterStartedAt'];
+const excludedKeys = ['_id', '__v', 'createdAt', 'updatedAt', 'title', 'legendStartedAt', 'bestCandidateStartedAt', 'screeningQuestionsAnswersStartedAt', 'ratingStartedAt', 'coverLetterStartedAt', 'cvGenerationComment'];
 
 onMounted(() => {
   void fetchJob();
@@ -152,6 +171,39 @@ onMounted(() => {
       </div>
       
       <div v-else-if="job" class="job-details-container">
+        <!-- CV Generation Section -->
+        <section class="detail-section highlight-section cv-section">
+          <div class="section-header">
+            <h3 class="detail-label">CV Generation</h3>
+            <button @click="generateCv" :disabled="generatingCv" class="generate-btn cv-btn">
+              {{ generatingCv ? 'Generating...' : 'Generate CV' }}
+            </button>
+          </div>
+          
+          <div class="field-group">
+            <label class="field-label">CV Generation Comment / Instructions</label>
+            <div v-if="editingField === 'cvGenerationComment'" class="edit-mode">
+              <textarea ref="textareaRef" v-model="editValue" @blur="saveField('cvGenerationComment')" class="edit-textarea"></textarea>
+            </div>
+            <div v-else @click="startEdit('cvGenerationComment', job.cvGenerationComment)" class="detail-content markdown-body" v-html="renderMarkdown(job.cvGenerationComment || '*Add instructions for CV generation here...*')"></div>
+          </div>
+
+          <div v-if="job.cvUrl || job.cvPdfUrl || job.cvHtmlUrl" class="cv-links">
+            <a v-if="job.cvPdfUrl || job.cvUrl" :href="job.cvPdfUrl || job.cvUrl" target="_blank" class="cv-link-badge pdf">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Download PDF
+            </a>
+            <a v-if="job.cvHtmlUrl" :href="job.cvHtmlUrl" target="_blank" class="cv-link-badge html">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              View HTML
+            </a>
+            <a v-if="job.cvJsonUrl" :href="job.cvJsonUrl" target="_blank" class="cv-link-badge json">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 12 12 16.5 14.6 16.5 19.79"/><polyline points="12 21.19 12 12"/></svg>
+              View JSON
+            </a>
+          </div>
+        </section>
+
         <!-- AI Generatable Sections First -->
         <section class="detail-section highlight-section">
           <div class="section-header">
@@ -460,5 +512,72 @@ onMounted(() => {
   border-radius: 1rem;
   border: 1px solid rgba(248, 113, 113, 0.2);
   text-align: center;
+}
+
+.cv-section {
+  border-color: #3dd9b444;
+  background: rgba(61, 217, 180, 0.03);
+}
+
+.cv-btn {
+  background: #3dd9b4;
+  box-shadow: 0 4px 14px 0 rgba(61, 217, 180, 0.39);
+}
+
+.field-group {
+  margin-top: 1rem;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.cv-links {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cv-link-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.cv-link-badge.pdf {
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+.cv-link-badge.html {
+  background: rgba(167, 139, 250, 0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.2);
+}
+
+.cv-link-badge.json {
+  background: rgba(96, 165, 250, 0.1);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.cv-link-badge:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
 }
 </style>
