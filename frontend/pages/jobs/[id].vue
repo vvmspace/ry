@@ -18,6 +18,10 @@ const job = ref<Record<string, any> | null>(null);
 const loading = ref(true);
 const error = ref("");
 
+const editingField = ref<string | null>(null);
+const editValue = ref("");
+const textareaRef = ref<HTMLTextAreaElement | null>(null);
+
 async function fetchJob() {
   const base = apiBase.value.replace(/\/$/, "");
   try {
@@ -32,8 +36,41 @@ async function fetchJob() {
   }
 }
 
-const generatingLegend = ref(false);
+async function saveField(key: string) {
+  if (!job.value || !job.value._id) return;
+  const originalValue = String(job.value[key] || "");
+  
+  if (editValue.value === originalValue) {
+    editingField.value = null;
+    return;
+  }
 
+  const base = apiBase.value.replace(/\/$/, "");
+  try {
+    const res = await fetch(`${base}/api/v1/jobs/${job.value._id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: editValue.value })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    job.value = data;
+  } catch (e) {
+    alert(e instanceof Error ? e.message : "Failed to save field");
+  } finally {
+    editingField.value = null;
+  }
+}
+
+function startEdit(key: string, value: any) {
+  editingField.value = key;
+  editValue.value = String(value || "");
+  nextTick(() => {
+    textareaRef.value?.focus();
+  });
+}
+
+const generatingLegend = ref(false);
 async function generateLegend() {
   if (!job.value || !job.value._id) return;
   generatingLegend.value = true;
@@ -53,7 +90,6 @@ async function generateLegend() {
 }
 
 const generatingBestCandidate = ref(false);
-
 async function generateBestCandidate() {
   if (!job.value || !job.value._id) return;
   generatingBestCandidate.value = true;
@@ -72,31 +108,17 @@ async function generateBestCandidate() {
   }
 }
 
-const generatingScreeningQuestionsAnswers = ref(false);
-
-async function generateScreeningQuestionsAnswers() {
-  if (!job.value || !job.value._id) return;
-  generatingScreeningQuestionsAnswers.value = true;
-  const base = apiBase.value.replace(/\/$/, "");
-  try {
-    const res = await fetch(`${base}/api/v1/jobs/${job.value._id}/screening_questions`, {
-      method: 'POST'
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    job.value = data;
-  } catch (e) {
-    alert(e instanceof Error ? e.message : "Failed to generate screening questions answers");
-  } finally {
-    generatingScreeningQuestionsAnswers.value = false;
-  }
-}
-
 function renderMarkdown(text: any) {
+  if (!text) return "";
   if (typeof text !== 'string') return String(text);
-  // Optional: add any marked configuration here if needed
   return marked.parse(text);
 }
+
+function formatLabel(key: string) {
+  return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+}
+
+const excludedKeys = ['_id', '__v', 'createdAt', 'updatedAt', 'title', 'legendStartedAt', 'bestCandidateStartedAt', 'screeningQuestionsAnswersStartedAt', 'ratingStartedAt', 'coverLetterStartedAt'];
 
 onMounted(() => {
   void fetchJob();
@@ -119,60 +141,71 @@ onMounted(() => {
           </NuxtLink>
           <p class="eyebrow" v-if="job">Job Details</p>
           <h1>{{ job?.title || "Loading..." }}</h1>
+          <p v-if="job?.companyName" class="hero-company">{{ job.companyName }}</p>
         </div>
       </section>
 
       <p v-if="error" class="error-msg">{{ error }}</p>
-      <p v-else-if="loading" class="loading">Loading…</p>
+      <div v-else-if="loading" class="loading-container">
+        <div class="loader"></div>
+        <p class="loading">Loading vacancy details…</p>
+      </div>
       
       <div v-else-if="job" class="job-details-container">
-        <div v-for="(value, key) in job" :key="key">
-          <section v-if="key !== 'legend' && key !== 'bestCandidate' && key !== 'screeningQuestionsAnswers' && value !== null && value !== undefined && value !== '' && key !== '_id' && key !== '__v' && key !== 'title'" class="detail-section">
-            <h3 class="detail-label">{{ String(key).replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) }}</h3>
-            
-            <div v-if="key === 'applicationUrl' || key === 'url' || String(key).toLowerCase().includes('url')">
-              <a :href="value" target="_blank" rel="noopener" class="detail-link">{{ value }}</a>
-            </div>
-            <div v-else-if="Array.isArray(value)" class="detail-tags">
-              <span v-for="item in value" :key="item" class="tag">{{ item }}</span>
-            </div>
-            <pre v-else-if="typeof value === 'object'" class="detail-pre">{{ JSON.stringify(value, null, 2) }}</pre>
-            <div v-else class="detail-content description-content" v-html="renderMarkdown(value)"></div>
-          </section>
-        </div>
-
-        <section class="detail-section legend-section">
-          <div class="legend-header">
+        <!-- AI Generatable Sections First -->
+        <section class="detail-section highlight-section">
+          <div class="section-header">
             <h3 class="detail-label">Legend</h3>
             <button @click="generateLegend" :disabled="generatingLegend" class="generate-btn">
               {{ generatingLegend ? 'Generating...' : 'Generate' }}
             </button>
           </div>
-          <div v-if="job.legend" class="detail-content legend-content description-content" v-html="renderMarkdown(job.legend)"></div>
-          <div v-else class="detail-content empty-text">No legend generated yet.</div>
+          <div v-if="editingField === 'legend'" class="edit-mode">
+            <textarea ref="textareaRef" v-model="editValue" @blur="saveField('legend')" class="edit-textarea"></textarea>
+          </div>
+          <div v-else @click="startEdit('legend', job.legend)" class="detail-content markdown-body" v-html="renderMarkdown(job.legend || '*No legend generated yet. Click to edit or use the Generate button.*')"></div>
         </section>
 
-        <section class="detail-section legend-section">
-          <div class="legend-header">
+        <section class="detail-section highlight-section">
+          <div class="section-header">
             <h3 class="detail-label">Best Candidate</h3>
             <button @click="generateBestCandidate" :disabled="generatingBestCandidate" class="generate-btn">
               {{ generatingBestCandidate ? 'Generating...' : 'Generate' }}
             </button>
           </div>
-          <div v-if="job.bestCandidate" class="detail-content legend-content description-content" v-html="renderMarkdown(job.bestCandidate)"></div>
-          <div v-else class="detail-content empty-text">No best candidate generated yet.</div>
+          <div v-if="editingField === 'bestCandidate'" class="edit-mode">
+            <textarea ref="textareaRef" v-model="editValue" @blur="saveField('bestCandidate')" class="edit-textarea"></textarea>
+          </div>
+          <div v-else @click="startEdit('bestCandidate', job.bestCandidate)" class="detail-content markdown-body" v-html="renderMarkdown(job.bestCandidate || '*No best candidate profile generated yet. Click to edit or use the Generate button.*')"></div>
         </section>
 
-        <section class="detail-section legend-section">
-          <div class="legend-header">
-            <h3 class="detail-label">Screening Questions Answers</h3>
-            <button @click="generateScreeningQuestionsAnswers" :disabled="generatingScreeningQuestionsAnswers" class="generate-btn">
-              {{ generatingScreeningQuestionsAnswers ? 'Generating...' : 'Generate' }}
-            </button>
-          </div>
-          <div v-if="job.screeningQuestionsAnswers" class="detail-content legend-content description-content" v-html="renderMarkdown(job.screeningQuestionsAnswers)"></div>
-          <div v-else class="detail-content empty-text">No screening questions answers generated yet.</div>
-        </section>
+        <!-- Dynamic Fields -->
+        <div v-for="(value, key) in job" :key="key">
+          <section v-if="!excludedKeys.includes(key as string) && key !== 'legend' && key !== 'bestCandidate' && value !== null && value !== undefined && value !== ''" class="detail-section">
+            <h3 class="detail-label">{{ formatLabel(key as string) }}</h3>
+            
+            <!-- Link Fields -->
+            <div v-if="String(key).toLowerCase().includes('url')">
+              <a :href="value" target="_blank" rel="noopener" class="detail-link">{{ value }}</a>
+            </div>
+
+            <!-- Tag Fields -->
+            <div v-else-if="Array.isArray(value)" class="detail-tags">
+              <span v-for="item in value" :key="item" class="tag">{{ item }}</span>
+            </div>
+
+            <!-- Object/JSON Fields -->
+            <pre v-else-if="typeof value === 'object'" class="detail-pre">{{ JSON.stringify(value, null, 2) }}</pre>
+
+            <!-- Editable Text/Markdown Fields -->
+            <div v-else>
+              <div v-if="editingField === key" class="edit-mode">
+                <textarea ref="textareaRef" v-model="editValue" @blur="saveField(key as string)" class="edit-textarea"></textarea>
+              </div>
+              <div v-else @click="startEdit(key as string, value)" class="detail-content markdown-body" v-html="renderMarkdown(value)"></div>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   </div>
@@ -182,145 +215,190 @@ onMounted(() => {
 .page-shell {
   position: relative;
   min-height: 100vh;
-  overflow: hidden;
-  padding-bottom: 4rem;
+  padding-bottom: 5rem;
 }
 
 .page-glow {
   position: absolute;
-  width: 28rem;
-  height: 28rem;
+  width: 35rem;
+  height: 35rem;
   border-radius: 999px;
-  filter: blur(90px);
-  opacity: 0.18;
+  filter: blur(120px);
+  opacity: 0.15;
   pointer-events: none;
+  z-index: -1;
 }
 
 .page-glow-left {
-  top: -8rem;
-  left: -10rem;
+  top: -10rem;
+  left: -15rem;
   background: #3dd9b4;
 }
 
 .page-glow-right {
-  top: 4rem;
-  right: -12rem;
-  background: #ff7a59;
+  bottom: 0;
+  right: -15rem;
+  background: #7dd3fc;
 }
 
 .hero {
-  display: grid;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
 }
 
 .back-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   color: var(--text-muted);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
-  transition: color 0.2s ease;
+  margin-bottom: 2rem;
+  transition: all 0.2s ease;
 }
 
 .back-link:hover {
   color: #7dd3fc;
+  transform: translateX(-4px);
 }
 
 .eyebrow {
-  margin: 0 0 0.5rem;
-  color: #7dd3fc;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  margin: 0 0 0.75rem;
+  color: #3dd9b4;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
 .hero h1 {
-  margin: 0;
-  font-size: clamp(2.2rem, 5vw, 3.5rem);
+  margin: 0 0 0.5rem;
+  font-size: clamp(2.5rem, 6vw, 4rem);
   line-height: 1.1;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 0%, #7dd3fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero-company {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .job-details-container {
   display: grid;
-  gap: 1.5rem;
-  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
 }
 
 .detail-section {
-  background: rgba(13, 17, 23, 0.6);
-  border: 1px solid rgba(125, 211, 252, 0.1);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  backdrop-filter: blur(12px);
-  overflow-wrap: break-word;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  backdrop-filter: blur(20px);
+  transition: border-color 0.3s ease;
 }
 
-.detail-label {
-  margin: 0 0 0.75rem;
-  color: #7dd3fc;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+.detail-section:hover {
+  border-color: rgba(125, 211, 252, 0.3);
 }
 
-.legend-header {
+.highlight-section {
+  background: rgba(125, 211, 252, 0.05);
+  border: 1px solid rgba(125, 211, 252, 0.2);
+}
+
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
-.legend-header .detail-label {
-  margin-bottom: 0;
+.detail-label {
+  margin: 0;
+  color: #7dd3fc;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .generate-btn {
   background: #3dd9b4;
   color: #0d1117;
   border: none;
-  border-radius: 0.5rem;
-  padding: 0.4rem 1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+  border-radius: 0.75rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .generate-btn:hover:not(:disabled) {
   background: #2cb898;
-  transform: translateY(-1px);
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(61, 217, 180, 0.3);
 }
 
 .generate-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.empty-text {
-  color: var(--text-muted);
-  font-style: italic;
+  opacity: 0.5;
+  cursor: wait;
 }
 
 .detail-content {
   color: var(--text);
-  font-size: 1rem;
-  line-height: 1.6;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  cursor: pointer;
+  min-height: 1.5em;
 }
 
-.description-content {
-  max-height: none;
-  padding-right: 0;
+.detail-content:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.5rem;
+}
+
+.edit-mode {
+  width: 100%;
+}
+
+.edit-textarea {
+  width: 100%;
+  min-height: 200px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #7dd3fc;
+  border-radius: 0.75rem;
+  color: #fff;
+  padding: 1rem;
+  font-size: 1.05rem;
+  font-family: inherit;
+  line-height: 1.7;
+  resize: vertical;
+  outline: none;
+}
+
+.markdown-body :deep(p) { margin-bottom: 1rem; }
+.markdown-body :deep(ul), .markdown-body :deep(ol) { margin-bottom: 1rem; padding-left: 1.5rem; }
+.markdown-body :deep(h1), .markdown-body :deep(h2), .markdown-body :deep(h3) { 
+  margin: 1.5rem 0 1rem; 
+  color: #7dd3fc;
+}
+.markdown-body :deep(code) {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.3rem;
+  font-size: 0.9em;
 }
 
 .detail-link {
   color: #3dd9b4;
   text-decoration: none;
+  font-weight: 600;
+  word-break: break-all;
 }
 
 .detail-link:hover {
@@ -330,38 +408,57 @@ onMounted(() => {
 .detail-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .tag {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 0.3rem 0.8rem;
+  background: rgba(61, 217, 180, 0.1);
+  border: 1px solid rgba(61, 217, 180, 0.2);
+  padding: 0.4rem 1rem;
   border-radius: 999px;
-  font-size: 0.85rem;
-  color: var(--text);
+  font-size: 0.9rem;
+  color: #3dd9b4;
+  font-weight: 600;
 }
 
 .detail-pre {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 1rem;
-  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 1.5rem;
+  border-radius: 1rem;
   overflow-x: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.9rem;
   color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.2);
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 5rem 0;
+}
+
+.loader {
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid rgba(61, 217, 180, 0.1);
+  border-top-color: #3dd9b4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .error-msg {
   color: #fca5a5;
-  background: rgba(248, 113, 113, 0.15);
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(248, 113, 113, 0.3);
-}
-
-.loading {
-  color: var(--text-muted);
-  font-size: 1.1rem;
+  background: rgba(248, 113, 113, 0.1);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  text-align: center;
 }
 </style>

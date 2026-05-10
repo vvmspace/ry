@@ -456,6 +456,7 @@ Generatable sections should contain "generate" button:
 - best_candidate
 
 Text fields support markdown format.
+Text fields becomes editable on click with autosave (via patch) on click outside of input. On click outside of input it should be formatted back to markdown.
 
 ## Deployment: github on push githook from local machine
 
