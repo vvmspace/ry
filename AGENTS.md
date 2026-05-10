@@ -454,9 +454,30 @@ Separated by sections hidden on null or empty array/object values.
 Generatable sections should contain "generate" button:
 - legend
 - best_candidate
+- screening_questions_answers
 
 Text fields support markdown format.
 Text fields becomes editable on click with autosave (via patch) on click outside of input. On click outside of input it should be formatted back to markdown.
+
+CV links: `cvUrl` / `cvPdfUrl` - download, `cvHtmlUrl` - view HTML, add `cvJsonUrl` - view JSON + "regenerate" button which calls POST /api/v1/jobs/:_id/cv 
+
+Order:
+- Job title (MATCH_RATE %) - header
+- company name
+- domain
+- salary
+- status
+- applicationUrl
+- Links for CV:
+-- link to download CV: PDF icon, download on click, equals to `cvUrl || cvPdfUrl`
+-- link to HTML CV: HTML icon, view in new tab, equals to `cvHtmlUrl` if provided
+-- link to download JSON CV: JSON icon, equals to `cvJsonUrl` if provided
+- legend (generatable)
+- best_candidate (generatable)
+- screening_questions_answers (generatable)
+- topTechAndSkills
+- copy: greeting_message, cover_letter, email, why_answer if provided
+- ... other fields as-is
 
 ## Deployment: github on push githook from local machine
 
