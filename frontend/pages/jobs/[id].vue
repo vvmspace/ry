@@ -244,9 +244,6 @@ onMounted(() => {
         <section class="detail-section highlight-section cv-section">
           <div class="section-header">
             <h3 class="detail-label">Links for CV</h3>
-            <button @click="generateCv" :disabled="generatingCv" class="generate-btn cv-btn">
-              {{ generatingCv ? 'Regenerating...' : (job.cvUrl ? 'Regenerate CV' : 'Generate CV') }}
-            </button>
           </div>
           
           <div class="cv-links-grid">
@@ -262,6 +259,10 @@ onMounted(() => {
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 12 12 16.5 14.6 16.5 19.79"/><polyline points="12 21.19 12 12"/></svg>
               <span>JSON CV</span>
             </a>
+            <button @click="generateCv" :disabled="generatingCv" class="cv-link-action regenerate-action" title="Regenerate CV">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span>{{ generatingCv ? 'Regen...' : 'Regenerate' }}</span>
+            </button>
           </div>
 
           <div class="field-group" style="margin-top: 1.5rem;">
@@ -541,6 +542,17 @@ onMounted(() => {
 .cv-link-action.pdf svg { color: #fca5a5; }
 .cv-link-action.html svg { color: #a78bfa; }
 .cv-link-action.json svg { color: #60a5fa; }
+.cv-link-action.regenerate-action svg { color: #3dd9b4; }
+
+.regenerate-action {
+  cursor: pointer;
+  background: rgba(61, 217, 180, 0.05);
+}
+.regenerate-action:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
 .cv-link-action span { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; }
 
 .detail-content {

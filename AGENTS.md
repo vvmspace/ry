@@ -472,6 +472,7 @@ Order:
 -- link to download CV: PDF icon, download on click, equals to `cvUrl || cvPdfUrl`
 -- link to HTML CV: HTML icon, view in new tab, equals to `cvHtmlUrl` if provided
 -- link to download JSON CV: JSON icon, equals to `cvJsonUrl` if provided
+-- regenerate CV button
 - legend (generatable)
 - best_candidate (generatable)
 - screening_questions_answers (generatable)
