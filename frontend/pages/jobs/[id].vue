@@ -314,6 +314,19 @@ onMounted(() => {
           <div v-else @click="startEdit('screeningQuestionsAnswers', job.screeningQuestionsAnswers)" class="detail-content markdown-body" v-html="renderMarkdown(job.screeningQuestionsAnswers || '*No screening questions answers generated yet.*')"></div>
         </section>
 
+        <section class="detail-section highlight-section ai-card">
+          <div class="section-header">
+            <h3 class="detail-label">Cover Letter</h3>
+            <button @click="generateCoverLetter" :disabled="generatingCoverLetter" class="generate-btn">
+              {{ generatingCoverLetter ? 'Generating...' : 'Generate' }}
+            </button>
+          </div>
+          <div v-if="editingField === 'coverLetter'" class="edit-mode">
+            <textarea ref="textareaRef" v-model="editValue" @blur="saveField('coverLetter')" class="edit-textarea"></textarea>
+          </div>
+          <div v-else @click="startEdit('coverLetter', job.coverLetter)" class="detail-content markdown-body" v-html="renderMarkdown(job.coverLetter || '*No cover letter generated yet.*')"></div>
+        </section>
+
         <!-- Tech & Skills -->
         <section class="detail-section" v-if="job.topTechAndSkills">
           <h3 class="detail-label">Top Tech & Skills</h3>
