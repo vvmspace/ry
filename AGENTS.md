@@ -372,6 +372,10 @@ Triggers CV generation for job with _id :_id.
 
 Triggers legend generation for job with _id :_id.
 
+### POST /api/v1/jobs/:_id/cover_letter
+
+Triggers cover letter generation for job with _id :_id.
+
 ### POST /api/v1/ai/ask/, optional: /api/v1/ai/ask/?applicationUrl=%includes%
 
 ```
@@ -455,6 +459,7 @@ Generatable sections should contain "generate" button:
 - legend
 - best_candidate
 - screening_questions_answers
+- coverLetter
 
 Text fields support markdown format.
 Text fields becomes editable on click with autosave (via patch) on click outside of input. On click outside of input it should be formatted back to markdown.

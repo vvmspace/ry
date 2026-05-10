@@ -32,6 +32,73 @@ async function claimNextJobForCoverLetter() {
   };
 }
 
+async function generateCoverLetter(job, cvText, promptTemplate) {
+  const vacancyText = `Title: ${job.title}\nCompany: ${job.companyName}\nSalary: ${job.salary}\n\nDescription:\n${job.description}`;
+  const schema = {
+    type: 'object',
+    properties: {
+      reasoning: { type: 'string' },
+      cover_letter: { type: 'string' }
+    },
+    required: ['reasoning', 'cover_letter']
+  };
+
+  let result;
+  let retries = 3;
+  let delay = 2000;
+
+  while (retries > 0) {
+    try {
+      result = await ai.json(
+        promptTemplate,
+        schema,
+        'local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash',
+        { cv: cvText, vacancy: vacancyText }
+      );
+      if (result && result.cover_letter) break;
+      throw new Error("AI response did not contain cover_letter");
+    } catch (err) {
+      retries--;
+      if (retries === 0) throw err;
+      console.warn(`AI Error (retries left: ${retries}): ${err.message}. Retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      delay *= 2;
+    }
+  }
+
+  job.coverLetter = result.cover_letter.trim();
+  job.coverLetterStartedAt = undefined;
+  job.updatedAt = new Date();
+  await job.save();
+  return job;
+}
+
+async function generateCoverLetterById(jobId) {
+  await connectMongo();
+  const job = await JobPage.findById(jobId);
+  if (!job) throw new Error("Job not found");
+
+  let cvText = '';
+  const cvPath = path.resolve(process.cwd(), 'full_cv.md');
+  const cvExamplePath = path.resolve(process.cwd(), 'full_cv.example.md');
+
+  if (fs.existsSync(cvPath)) {
+    cvText = fs.readFileSync(cvPath, 'utf8');
+  } else if (fs.existsSync(cvExamplePath)) {
+    cvText = fs.readFileSync(cvExamplePath, 'utf8');
+  } else {
+    throw new Error("No CV file found (full_cv.md or full_cv.example.md)");
+  }
+
+  const promptPath = path.resolve(process.cwd(), 'prompts/cover_letter.md');
+  if (!fs.existsSync(promptPath)) {
+    throw new Error(`Prompt file not found: ${promptPath}`);
+  }
+  const promptTemplate = fs.readFileSync(promptPath, 'utf8');
+
+  return await generateCoverLetter(job, cvText, promptTemplate);
+}
+
 async function runCoverLetterWorker() {
   console.log('\x1b[35m\x1b[1m✉️  COVER LETTER WORKER\x1b[0m');
 
@@ -70,7 +137,6 @@ async function runCoverLetterWorker() {
     let successCount = 0;
 
     const runWorker = async (workerId) => {
-      // Stagger starts
       if (workerId > 1) {
         await new Promise(r => setTimeout(r, (workerId - 1) * 1500));
       }
@@ -85,9 +151,7 @@ async function runCoverLetterWorker() {
             console.log(`[Worker ${workerId}] No more jobs found for cover letter generation.`);
             break;
           }
-          if (!result.job) {
-            continue;
-          }
+          if (!result.job) continue;
           job = result.job;
         } catch (err) {
           console.error(`[Worker ${workerId}] Failed to fetch/claim job from DB:`, err);
@@ -98,49 +162,12 @@ async function runCoverLetterWorker() {
         console.log(`[Worker ${workerId}] Generating cover letter (${claimedCount}/${iterations}) for: ${job.title} (${job.companyName})`);
 
         try {
-          const vacancyText = `Title: ${job.title}\nCompany: ${job.companyName}\nSalary: ${job.salary}\n\nDescription:\n${job.description}`;
-          const schema = {
-            type: 'object',
-            properties: {
-              reasoning: { type: 'string' },
-              cover_letter: { type: 'string' }
-            },
-            required: ['reasoning', 'cover_letter']
-          };
-
-          let result;
-          let retries = 3;
-          let delay = 2000;
-
-          while (retries > 0) {
-            try {
-              result = await ai.json(
-                promptTemplate,
-                schema,
-                'local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash',
-                { cv: cvText, vacancy: vacancyText }
-              );
-              if (result && result.cover_letter) break;
-              throw new Error("AI response did not contain cover_letter");
-            } catch (err) {
-              retries--;
-              if (retries === 0) throw err;
-              console.warn(`[Worker ${workerId}] AI Error (retries left: ${retries}): ${err.message}. Retrying in ${delay}ms...`);
-              await new Promise(r => setTimeout(r, delay));
-              delay *= 2;
-            }
-          }
-
-          job.coverLetter = result.cover_letter.trim();
-          job.coverLetterStartedAt = undefined; // Clear lock
-          job.updatedAt = new Date();
-          await job.save();
-          
+          await generateCoverLetter(job, cvText, promptTemplate);
           console.log(`[Worker ${workerId}] ✅ Successfully generated cover letter for: ${job.title}`);
           successCount++;
         } catch (err) {
           console.error(`[Worker ${workerId}] Cover letter generation failed for ${job.url}:`, err);
-          job.coverLetterStartedAt = undefined; // Clear lock
+          job.coverLetterStartedAt = undefined;
           await job.save();
         }
       }
@@ -181,4 +208,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { runCoverLetterWorker };
+module.exports = { runCoverLetterWorker, generateCoverLetterById };

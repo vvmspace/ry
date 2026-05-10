@@ -181,6 +181,18 @@ async function handleGenerateCv(req, res, params) {
   }
 }
 
+async function handleGenerateCoverLetter(req, res, params) {
+  try {
+    const updatedJob = await generateCoverLetterById(params.id);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(updatedJob));
+  } catch (err) {
+    console.error(err);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+  }
+}
+
 module.exports = [
   { method: 'GET',   pattern: '/api/v1/jobs',  handler: handleListJobs },
   { method: 'POST',  pattern: '/api/v1/jobs',  handler: handleCreateJob },
@@ -194,4 +206,5 @@ module.exports = [
   { method: 'POST',  pattern: /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/legend\/?$/, handler: handleGenerateLegend },
   { method: 'POST',  pattern: /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/best_candidate\/?$/, handler: handleGenerateBestCandidate },
   { method: 'POST',  pattern: /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/screening_questions\/?$/, handler: handleGenerateScreeningQuestions },
+  { method: 'POST',  pattern: /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/cover_letter\/?$/, handler: handleGenerateCoverLetter },
 ];
