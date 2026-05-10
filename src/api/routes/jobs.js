@@ -6,6 +6,7 @@ const { generateLegend } = require('../../workers/legendWorker');
 const { generateBestCandidate } = require('../../workers/bestCandidateWorker');
 const { generateScreeningQuestions } = require('../../workers/screeningQuestionsWorker');
 const { generateCvById } = require('../../workers/cvGenerationWorker');
+const { generateCoverLetterById } = require('../../workers/coverLetterWorker');
 
 const PATCH_V1_RE     = /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/?$/;
 const CV_V1_RE        = /^\/api\/v1\/jobs\/(?<id>[a-f0-9A-F]{24})\/cv\/?$/;
