@@ -134,6 +134,22 @@ async function generateCv() {
   }
 }
 
+const generatingCoverLetter = ref(false);
+async function generateCoverLetter() {
+  if (!job.value || !job.value._id) return;
+  generatingCoverLetter.value = true;
+  const base = apiBase.value.replace(/\/$/, "");
+  try {
+    const res = await fetch(`${base}/api/v1/jobs/${job.value._id}/cover_letter`, { method: 'POST' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    job.value = await res.json();
+  } catch (e) {
+    alert(e instanceof Error ? e.message : "Failed to generate cover letter");
+  } finally {
+    generatingCoverLetter.value = false;
+  }
+}
+
 function renderMarkdown(text: any) {
   if (!text) return "";
   if (typeof text !== 'string') return String(text);
@@ -165,7 +181,7 @@ const handledKeys = [
   '_id', '__v', 'createdAt', 'updatedAt', 'title', 'matchRate', 
   'companyName', 'domain', 'salary', 'status', 'applicationUrl',
   'cvUrl', 'cvPdfUrl', 'cvHtmlUrl', 'cvJsonUrl', 'jsonUrl',
-  'legend', 'bestCandidate', 'screeningQuestionsAnswers',
+  'legend', 'bestCandidate', 'screeningQuestionsAnswers', 'coverLetter',
   'topTechAndSkills', 'greetingMessage', 'coverLetter', 'email', 'whyAnswer',
   'cvGenerationComment', 'legendStartedAt', 'bestCandidateStartedAt', 
   'screeningQuestionsAnswersStartedAt', 'ratingStartedAt', 'coverLetterStartedAt'
