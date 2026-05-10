@@ -2,6 +2,9 @@
 <cv>
 %cv%
 </cv>
+<cv_sent>
+%cv_sent%
+</cv_sent>
 <vacancy>
 %vacancy%
 </vacancy>

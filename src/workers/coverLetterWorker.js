@@ -34,6 +34,33 @@ async function claimNextJobForCoverLetter() {
 
 async function generateCoverLetter(job, cvText, promptTemplate) {
   const vacancyText = `Title: ${job.title}\nCompany: ${job.companyName}\nSalary: ${job.salary}\n\nDescription:\n${job.description}`;
+  
+  let cvSentText = '';
+  const jsonUrl = job.cvJsonUrl || job.jsonUrl;
+  if (jsonUrl) {
+    try {
+      const res = await fetch(jsonUrl);
+      if (res.ok) {
+        const data = await res.json();
+        cvSentText = JSON.stringify(data, null, 2);
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch JSON CV from ${jsonUrl}:`, err.message);
+    }
+  } else if (job.cvHtmlUrl) {
+    try {
+      const res = await fetch(job.cvHtmlUrl);
+      if (res.ok) {
+        const html = await res.text();
+        const cheerio = require('cheerio');
+        const $ = cheerio.load(html);
+        cvSentText = $('body').text().replace(/\s+/g, ' ').trim();
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch HTML CV from ${job.cvHtmlUrl}:`, err.message);
+    }
+  }
+
   const schema = {
     type: 'object',
     properties: {
@@ -53,7 +80,7 @@ async function generateCoverLetter(job, cvText, promptTemplate) {
         promptTemplate,
         schema,
         'local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash',
-        { cv: cvText, vacancy: vacancyText }
+        { cv: cvText, vacancy: vacancyText, cv_sent: cvSentText }
       );
       if (result && result.cover_letter) break;
       throw new Error("AI response did not contain cover_letter");

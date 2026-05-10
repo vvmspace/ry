@@ -186,7 +186,7 @@ If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
 
 If `full_cv.md` of `full_cv.example.md` (fallback) file exists:
 - get 1 cv: `match_rate` desc, `createdAt` desc, status: `saved`,`generated`
-- use `prompts/cover_letter.md` + ai service + cv text + vacancy text + `local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`
+- use `prompts/cover_letter.md` + ai service + cv text + vacancy text + cv_sent (text from json or html if provided) + `local,gemma-4-31b-it,gemma-4-26b-a4b-it,gemini-2.5-flash`
 - save `coverLetter` and `updatedAt`
 
 
