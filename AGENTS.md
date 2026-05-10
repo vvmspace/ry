@@ -217,7 +217,8 @@ order by count of filters then by updatedAt desc
 ```json
 {
     "vacancy_text": "Put title + vacancy text there",
-    "model": "gemini-3.1-pro-preview"
+    "model": "gemini-3.1-pro-preview",
+    "custom_comment": "optional" // if job.cvGenerationComment is set
 }
 ```
 
@@ -362,6 +363,10 @@ Example:
 ```
 
 Emits events like: job_updated({id, status, legend, ...})}
+
+### POST /api/v1/jobs/:_id/cv
+
+Triggers CV generation for job with _id :_id.
 
 ### POST /api/v1/jobs/:_id/legend
 

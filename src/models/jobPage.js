@@ -60,6 +60,8 @@ const jobPageSchema = new mongoose.Schema(
     bestCandidateStartedAt: Date,
     screeningQuestionsAnswers: String,
     screeningQuestionsAnswersStartedAt: Date,
+    cvGenerationComment: String,
+    cvJsonUrl: String,
   },
   {
     timestamps: true,

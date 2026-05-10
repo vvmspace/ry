@@ -122,15 +122,18 @@ async function generateCvForJob(job, options = {}) {
     model,
   };
 
+  if (job.cvGenerationComment) {
+    body.custom_comment = job.cvGenerationComment;
+  }
+
   const url = `${API_BASE}${GENERATE_CV_PATH}`;
 
   console.log("API Request:", JSON.stringify({
     method: "POST",
     url: url,
-    parameters: {
-      template: body.template,
-      model: body.model,
-      vacancy_text_preview: body.vacancy_text.substring(0, 150) + "..."
+    body: {
+      ...body,
+      vacancy_text: body.vacancy_text.substring(0, 150) + "..."
     }
   }, null, 2));
 
@@ -178,7 +181,10 @@ async function generateCvForJob(job, options = {}) {
   }
 
   const pdfUrl = data.pdf_url;
+  const htmlUrl = data.html_url;
   const cvUrl = buildCvUrl(pdfUrl);
+  const cvHtmlUrl = buildCvUrl(htmlUrl);
+  const cvPdfUrl = cvUrl;
   const greetingMessage =
     typeof data.greeting_message === "string" && data.greeting_message.trim()
       ? data.greeting_message.trim()
@@ -198,7 +204,7 @@ async function generateCvForJob(job, options = {}) {
       : "";
   const jsonUrl = data.json_url;
 
-  return { cvUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, jsonUrl, data };
+  return { cvUrl, cvHtmlUrl, cvPdfUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, jsonUrl, data };
 }
 
 async function claimNextSavedJob(priority) {
@@ -263,12 +269,14 @@ async function runCvGenerationWorker() {
       console.log(`[Worker ${workerId}] Generating CV for job (${claimedCount}/${iterations}): ${job.url}`);
 
       try {
-        const { cvUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, jsonUrl } = await generateCvForJob(job);
+        const { cvUrl, cvHtmlUrl, cvPdfUrl, greetingMessage, matchRate, email, topTechAndSkills, whyAnswer, jsonUrl } = await generateCvForJob(job);
         if (!cvUrl) {
           throw new Error("API did not return pdf_url");
         }
 
         job.cvUrl = cvUrl;
+        job.cvHtmlUrl = cvHtmlUrl;
+        job.cvPdfUrl = cvPdfUrl;
         job.greetingMessage = greetingMessage;
         if (job.matchRate === undefined || job.matchRate === null) {
           job.matchRate = matchRate;
@@ -277,7 +285,9 @@ async function runCvGenerationWorker() {
         job.topTechAndSkills = topTechAndSkills;
         job.whyAnswer = whyAnswer;
         if (jsonUrl) {
-          job.jsonUrl = buildCvUrl(jsonUrl);
+          const formattedJsonUrl = buildCvUrl(jsonUrl);
+          job.jsonUrl = formattedJsonUrl;
+          job.cvJsonUrl = formattedJsonUrl;
         }
         job.status = "generated";
         await job.save();
@@ -321,6 +331,50 @@ async function runCvGenerationWorker() {
   }
 }
 
+async function generateCvById(jobId) {
+  const job = await JobPage.findById(jobId);
+  if (!job) {
+    throw new Error("Job not found");
+  }
+
+  const {
+    cvUrl,
+    cvHtmlUrl,
+    cvPdfUrl,
+    greetingMessage,
+    matchRate,
+    email,
+    topTechAndSkills,
+    whyAnswer,
+    jsonUrl
+  } = await generateCvForJob(job);
+
+  if (!cvUrl) {
+    throw new Error("API did not return pdf_url");
+  }
+
+  job.cvUrl = cvUrl;
+  job.cvHtmlUrl = cvHtmlUrl;
+  job.cvPdfUrl = cvPdfUrl;
+  job.greetingMessage = greetingMessage;
+  if (job.matchRate === undefined || job.matchRate === null) {
+    job.matchRate = matchRate;
+  }
+  job.email = email;
+  job.topTechAndSkills = topTechAndSkills;
+  job.whyAnswer = whyAnswer;
+  if (jsonUrl) {
+    const formattedJsonUrl = buildCvUrl(jsonUrl);
+    job.jsonUrl = formattedJsonUrl;
+    job.cvJsonUrl = formattedJsonUrl;
+  }
+  job.status = "generated";
+  job.updatedAt = new Date();
+  await job.save();
+
+  return job;
+}
+
 if (require.main === module) {
   const t0 = require('perf_hooks').performance.now();
   console.log(`Job started at: ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }).format(new Date())}`);
@@ -339,5 +393,6 @@ module.exports = {
   parseMatchRate,
   formatLogTime,
   generateCvForJob,
+  generateCvById,
   runCvGenerationWorker,
 };
