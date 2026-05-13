@@ -68,9 +68,12 @@ test("listJobs builds aggregation with sort and pagination", async () => {
   const originalAggregate = JobPage.aggregate;
   let capturedPipeline = null;
 
-  JobPage.aggregate = async (pipeline) => {
+  JobPage.aggregate = (pipeline) => {
     capturedPipeline = pipeline;
-    return [{ items: [{ _id: "job-1", status: "generated", matchRate: 92 }], total: 1 }];
+    const result = [{ items: [{ _id: "job-1", status: "generated", matchRate: 92 }], total: 1 }];
+    const agg = Promise.resolve(result);
+    agg.allowDiskUse = () => agg;
+    return agg;
   };
 
   try {

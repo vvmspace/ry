@@ -98,7 +98,7 @@ async function listJobs(queryParams) {
         total: { $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0] },
       },
     },
-  ]);
+  ]).allowDiskUse(true);
   const total = result?.total || 0;
   const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
 

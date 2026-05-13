@@ -59,7 +59,7 @@ async function findNextSavedJob(priority) {
     { $addFields: { _priorityScore: priorityScore } },
     { $sort: { _priorityScore: -1, matchRate: -1, createdAt: -1 } },
     { $limit: 1 },
-  ]);
+  ]).allowDiskUse(true);
 
   return doc ? JobPage.findById(doc._id) : null;
 }
@@ -118,7 +118,7 @@ async function generateCvForJob(job, options = {}) {
 
   const body = {
     vacancy_text: vacancyText,
-    template: 'light_calendly',
+    template: template,
     model,
   };
 
