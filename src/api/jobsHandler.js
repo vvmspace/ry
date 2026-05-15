@@ -76,6 +76,14 @@ async function listJobs(queryParams) {
         },
       },
     },
+    {
+      $project: {
+        _id: 1,
+        sortStatusOrder: 1,
+        sortMatchRate: 1,
+        updatedAt: 1,
+      },
+    },
     { $sort: { sortStatusOrder: 1, sortMatchRate: -1, updatedAt: -1 } },
     {
       $facet: {
@@ -83,11 +91,15 @@ async function listJobs(queryParams) {
           { $skip: skip },
           { $limit: limit },
           {
-            $project: {
-              sortStatusOrder: 0,
-              sortMatchRate: 0,
+            $lookup: {
+              from: JobPage.collection.name,
+              localField: "_id",
+              foreignField: "_id",
+              as: "doc",
             },
           },
+          { $unwind: "$doc" },
+          { $replaceRoot: { newRoot: "$doc" } },
         ],
         total: [{ $count: "count" }],
       },
@@ -98,7 +110,7 @@ async function listJobs(queryParams) {
         total: { $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0] },
       },
     },
-  ]).allowDiskUse(true);
+  ]);
   const total = result?.total || 0;
   const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
 

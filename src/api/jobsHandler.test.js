@@ -68,12 +68,9 @@ test("listJobs builds aggregation with sort and pagination", async () => {
   const originalAggregate = JobPage.aggregate;
   let capturedPipeline = null;
 
-  JobPage.aggregate = (pipeline) => {
+  JobPage.aggregate = async (pipeline) => {
     capturedPipeline = pipeline;
-    const result = [{ items: [{ _id: "job-1", status: "generated", matchRate: 92 }], total: 1 }];
-    const agg = Promise.resolve(result);
-    agg.allowDiskUse = () => agg;
-    return agg;
+    return [{ items: [{ _id: "job-1", status: "generated", matchRate: 92 }], total: 1 }];
   };
 
   try {
@@ -108,19 +105,31 @@ test("listJobs builds aggregation with sort and pagination", async () => {
       },
     });
     assert.deepEqual(capturedPipeline[2], {
-      $sort: { sortStatusOrder: 1, sortMatchRate: -1, updatedAt: -1 },
+      $project: {
+        _id: 1,
+        sortStatusOrder: 1,
+        sortMatchRate: 1,
+        updatedAt: 1,
+      },
     });
     assert.deepEqual(capturedPipeline[3], {
+      $sort: { sortStatusOrder: 1, sortMatchRate: -1, updatedAt: -1 },
+    });
+    assert.deepEqual(capturedPipeline[4], {
       $facet: {
         items: [
           { $skip: 10 },
           { $limit: 10 },
           {
-            $project: {
-              sortStatusOrder: 0,
-              sortMatchRate: 0,
+            $lookup: {
+              from: JobPage.collection.name,
+              localField: "_id",
+              foreignField: "_id",
+              as: "doc",
             },
           },
+          { $unwind: "$doc" },
+          { $replaceRoot: { newRoot: "$doc" } },
         ],
         total: [{ $count: "count" }],
       },

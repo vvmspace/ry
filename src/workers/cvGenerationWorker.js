@@ -57,9 +57,10 @@ async function findNextSavedJob(priority) {
   const [doc] = await JobPage.aggregate([
     { $match: { status: 'saved' } },
     { $addFields: { _priorityScore: priorityScore } },
+    { $project: { _id: 1, _priorityScore: 1, matchRate: 1, createdAt: 1 } },
     { $sort: { _priorityScore: -1, matchRate: -1, createdAt: -1 } },
     { $limit: 1 },
-  ]).allowDiskUse(true);
+  ]);
 
   return doc ? JobPage.findById(doc._id) : null;
 }
